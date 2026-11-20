@@ -729,8 +729,8 @@ async function loadAdminPlayers(){
    const {data:updatedBalance,error:rpcError}=await client.rpc("adjust_player_balance",{target_id:player.id,amount:value});
    apply.disabled=false;
    if(rpcError){adminSay("Ошибка изменения баланса: "+rpcError.message);return}
-   adminSay("Баланс игрока обновлён: "+Number(updatedBalance).toLocaleString("ru-RU")+" ₽");
    await loadAdminPlayers();
+   adminSay("УСПЕХ: баланс в базе данных обновлён до "+Number(updatedBalance).toLocaleString("ru-RU")+" ₽.");
   });
   controls.append(amount,apply);card.appendChild(controls);adminPlayers.appendChild(card);
  });
