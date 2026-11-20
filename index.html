@@ -782,6 +782,11 @@ async function loadAdminPlayers(){
    const {error:titleError}=await client.rpc("set_player_title",{target_id:player.id,new_title:newTitle||null});
    titleApply.disabled=false;
    if(titleError){adminSay("Ошибка изменения звания: "+titleError.message);return}
+   const {data:sessionData}=await client.auth.getSession();
+   if(sessionData.session&&sessionData.session.user.id===player.id){
+    const {data:ownProfile,error:ownProfileError}=await client.from("players").select("title").eq("id",player.id).single();
+    if(!ownProfileError){profileTitle=ownProfile?.title||"";render()}
+   }
    await loadAdminPlayers();
    adminSay(newTitle?"Звание игрока "+playerName+" обновлено.":"Звание игрока "+playerName+" снято.");
   });
