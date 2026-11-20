@@ -43,6 +43,7 @@ header {
 }
 .logo span { color: var(--gold); }
 .developer {
+  display:none;
   color: #17120a;
   background: linear-gradient(135deg, #ffe7a8, #d4a447);
   padding: 9px 14px;
@@ -225,7 +226,7 @@ footer {
 
 <header>
   <div class="logo">RICH <span>LIFE</span></div>
-  <div class="developer">✦ 👑 РАЗРАБОТЧИК</div>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div class="developer" id="rl-founder-badge">✦ 👑 РАЗРАБОТЧИК</div><button id="rl-auth-open" style="background:#e8bd68;color:#17120a;padding:10px 14px;border-radius:10px;font-weight:800">Войти / Регистрация</button><button id="rl-auth-out" style="display:none;background:#252932;color:#fff;padding:10px 14px;border-radius:10px">Выйти</button></div>
 </header>
 
 <main>
@@ -625,5 +626,40 @@ render();
 </script>
 <!-- Конец блока восстановления пароля -->
 
+
+<style>
+#rl-auth-overlay{position:fixed;inset:0;z-index:99990;display:none;align-items:center;justify-content:center;padding:18px;background:#05070bdc}
+#rl-auth-panel{width:100%;max-width:420px;padding:26px;border:1px solid #d9ad58;border-radius:20px;background:#151923;color:#f5f5f7}
+#rl-auth-panel h2{color:#ffe3a1}#rl-auth-panel p{color:#aeb3bf;font-size:13px;line-height:1.5}
+#rl-auth-panel input{box-sizing:border-box;width:100%;padding:13px;margin:7px 0;border-radius:10px;border:1px solid #444;background:#090c13;color:white}
+#rl-auth-panel button{padding:13px;border:0;border-radius:10px;font-weight:800;cursor:pointer}
+#rl-auth-submit{width:100%;margin-top:10px;background:#e8bd68;color:#17120a}
+#rl-auth-switch,#rl-auth-forgot{display:block;background:transparent;color:#ffe3a1;margin:8px auto}
+#rl-auth-close{float:right;background:#292d37;color:white}
+#rl-auth-status{min-height:22px;margin-top:12px;color:#ffe3a1;font-size:13px;line-height:1.5}
+</style>
+<div id="rl-auth-overlay"><form id="rl-auth-panel">
+<button type="button" id="rl-auth-close">✕</button><h2 id="rl-auth-title">Войти в RICH LIFE</h2>
+<p id="rl-auth-description">Введи почту и пароль своего аккаунта.</p>
+<input id="rl-auth-email" type="email" autocomplete="email" placeholder="Электронная почта" required>
+<input id="rl-auth-password" type="password" minlength="8" placeholder="Пароль (минимум 8 символов)" required>
+<button id="rl-auth-submit" type="submit">Войти</button>
+<button id="rl-auth-switch" type="button">Нет аккаунта? Зарегистрироваться</button>
+<button id="rl-auth-forgot" type="button">Забыли пароль?</button><div id="rl-auth-status"></div>
+</form></div>
+<script>
+(function(){
+const overlay=document.getElementById("rl-auth-overlay"),form=document.getElementById("rl-auth-panel"),status=document.getElementById("rl-auth-status"),open=document.getElementById("rl-auth-open"),out=document.getElementById("rl-auth-out"),badge=document.getElementById("rl-founder-badge"),submit=document.getElementById("rl-auth-submit"),sw=document.getElementById("rl-auth-switch");
+let client=null,mode="login";
+const say=t=>status.textContent=t;
+function setMode(m){mode=m;document.getElementById("rl-auth-title").textContent=m==="signup"?"Создать аккаунт":"Войти в RICH LIFE";document.getElementById("rl-auth-description").textContent=m==="signup"?"Укажи почту и придумай пароль от 8 символов.":"Введи почту и пароль своего аккаунта.";submit.textContent=m==="signup"?"Зарегистрироваться":"Войти";sw.textContent=m==="signup"?"Уже есть аккаунт? Войти":"Нет аккаунта? Зарегистрироваться";say("")}
+async function refresh(){const {data,error}=await client.auth.getSession();if(error)return say(error.message);if(!data.session){open.textContent="Войти / Регистрация";out.style.display="none";badge.style.display="none";return}const {data:p}=await client.from("players").select("role").eq("id",data.session.user.id).maybeSingle();open.textContent=data.session.user.email;out.style.display="inline-block";badge.style.display=p&&p.role==="founder"?"inline-block":"none"}
+const sdk=document.createElement("script");sdk.src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";sdk.onload=async()=>{client=window.supabase.createClient("https://ywvqorqjzljpxodwonmk.supabase.co","sb_publishable_Av82Ku256SeOKhoRx2-Hfw_BQXk82C0");await refresh();client.auth.onAuthStateChange(()=>refresh())};sdk.onerror=()=>say("Не удалось загрузить авторизацию.");document.head.appendChild(sdk);
+open.onclick=()=>{setMode("login");overlay.style.display="flex"};document.getElementById("rl-auth-close").onclick=()=>overlay.style.display="none";overlay.onclick=e=>{if(e.target===overlay)overlay.style.display="none"};sw.onclick=()=>setMode(mode==="login"?"signup":"login");
+form.onsubmit=async e=>{e.preventDefault();if(!client)return say("Подожди загрузки авторизации.");const email=document.getElementById("rl-auth-email").value.trim(),password=document.getElementById("rl-auth-password").value;if(password.length<8)return say("Пароль должен быть не короче 8 символов.");submit.disabled=true;try{if(mode==="signup"){const {data,error}=await client.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}});if(error)throw error;if(data.session){await refresh();overlay.style.display="none";say("Аккаунт создан.")}else say("Проверь почту и подтверди регистрацию. Затем войди на сайт.")}else{const {error}=await client.auth.signInWithPassword({email,password});if(error)throw error;await refresh();overlay.style.display="none"}}catch(err){say("Ошибка: "+err.message)}finally{submit.disabled=false}};
+document.getElementById("rl-auth-forgot").onclick=async()=>{if(!client)return say("Подожди загрузки.");const email=document.getElementById("rl-auth-email").value.trim();if(!email)return say("Сначала введи электронную почту.");const {error}=await client.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});say(error?"Ошибка: "+error.message:"Если адрес зарегистрирован, письмо отправлено. Возможен лимит отправки писем.")};
+out.onclick=async()=>{if(!client)return;const {error}=await client.auth.signOut();if(error)return say(error.message);await refresh()};
+})();
+</script>
 </body>
 </html>
