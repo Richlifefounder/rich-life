@@ -372,10 +372,11 @@ footer {
 
   <div class="section-title">Карьера</div>
   <section class="career">
-    <div style="color:var(--gold);font-size:12px;font-weight:800">ТВОЙ ПРОФЕССИОНАЛЬНЫЙ ПУТЬ</div>
-    <h3 id="careerName">Начинающий специалист</h3>
-    <div style="color:var(--muted);font-size:12px" id="careerInfo">Следующая ступень: 10 000 ₽</div>
-    <button onclick="promotion()">Получить повышение</button>
+    <div style="color:var(--gold);font-size:12px;font-weight:800;letter-spacing:.08em">ТВОЙ ПРОФЕССИОНАЛЬНЫЙ ПУТЬ</div>
+    <div id="careerContent" style="margin-top:12px">
+      <div style="color:var(--muted);font-size:13px">Загружаем карьеру…</div>
+    </div>
+    <div id="careerStatus" role="status" style="color:var(--gold);font-size:12px;margin-top:10px"></div>
   </section>
 
   <div class="section-title">Инвестиции и активы</div>
@@ -493,6 +494,20 @@ function spendEnergy(amount) {
   return true;
 }
 
+async function chooseCareerPath(path){
+ const status=document.getElementById("careerStatus");
+ if(!client){status.textContent="Сначала войди в аккаунт.";return}
+ if(!careerPaths[path])return;
+ status.textContent="Сохраняем выбранный путь…";
+ try{
+  const {error}=await client.rpc("choose_career_path",{p_path:path});
+  if(error)throw error;
+  profileCareerPath=path;
+  status.textContent="Профессиональный путь выбран!";
+  render();
+ }catch(error){status.textContent="Не удалось сохранить: "+error.message}
+}
+window.chooseCareerPath=chooseCareerPath;
 function work() { window.performGameAction?.("work"); }
 function study() { window.performGameAction?.("study"); }
 function rest() { window.performGameAction?.("rest"); }
@@ -502,6 +517,8 @@ function buyAsset(id) { window.performGameAction?.("buy_asset", id); }
 
 let profileTitle="";
 let profileUsername="";
+let profileCareerPath="";
+const careerPaths={office:{icon:"💼",name:"Офис",desc:"Работа в команде, задачи и управление проектами",first:"Стажёр"},it:{icon:"💻",name:"IT",desc:"Технологии, разработка и создание цифровых продуктов",first:"Junior"},business:{icon:"🏢",name:"Бизнес",desc:"Своё дело, развитие компании и предпринимательство",first:"Помощник"},aviation:{icon:"✈️",name:"Авиация",desc:"Путь от курсанта до командира экипажа",first:"Курсант"},finance:{icon:"💰",name:"Финансы",desc:"Аналитика, инвестиции и управление капиталом",first:"Ассистент"}};
 function render() {
   const identityEl=document.getElementById("rl-player-identity");
   const usernameEl=document.getElementById("rl-player-username");
@@ -515,6 +532,16 @@ function render() {
   document.getElementById("xpBar").style.width=game.xp+"%";
   document.getElementById("day").textContent=game.day;
 
+  const careerContent=document.getElementById("careerContent");
+  if(careerContent){
+    if(profileCareerPath&&careerPaths[profileCareerPath]){
+      const path=careerPaths[profileCareerPath];
+      careerContent.innerHTML=`<div style="display:flex;align-items:center;gap:12px"><div style="font-size:30px">${path.icon}</div><div><div style="font-size:11px;color:var(--muted);font-weight:800;letter-spacing:.06em">ВЫБРАННОЕ НАПРАВЛЕНИЕ</div><h3 style="margin:3px 0 0">${path.name}</h3></div></div><div style="margin-top:12px;font-size:13px;color:var(--muted)">${path.desc}</div><div style="margin-top:14px;padding:12px;border:1px solid #d9ad5840;border-radius:12px;background:#0d1119"><div style="font-size:11px;color:var(--muted)">ТВОЯ СТАРТОВАЯ ПОЗИЦИЯ</div><div style="font-size:18px;font-weight:800;margin-top:4px">${path.first}</div><div style="font-size:12px;color:var(--muted);margin-top:5px">Карьерный рост будет зависеть от опыта, навыков и достижений. Система повышений появится на следующем этапе.</div></div>`;
+    }else{
+      careerContent.innerHTML=Object.entries(careerPaths).map(([id,path])=>`<button type="button" onclick="chooseCareerPath('${id}')" style="display:flex;align-items:center;gap:12px;text-align:left;width:100%;padding:13px;margin:8px 0 0;background:#171b25;color:#fff;border:1px solid #ffffff18;border-radius:12px"><span style="font-size:26px">${path.icon}</span><span style="flex:1;min-width:0"><strong style="display:block">${path.name}</strong><small style="display:block;color:var(--muted);margin-top:4px;line-height:1.4">${path.desc}</small></span><span style="color:var(--gold);font-size:18px">›</span></button>`).join("");
+      if(!window.currentUserSignedIn)careerContent.insertAdjacentHTML("afterbegin",'<div style="color:var(--muted);font-size:13px">Войди в аккаунт, чтобы выбрать профессию и сохранить свой путь.</div>');
+    }
+  }
   const career=careerLevels[game.career];
   document.getElementById("careerName").textContent=career.name;
   document.getElementById("careerInfo").textContent=
@@ -909,6 +936,7 @@ function watchPlayerProfile(userId){
    game.owned=Array.isArray(updated.owned_assets)?updated.owned_assets:game.owned;
    profileTitle=updated.title||"";
    profileUsername=updated.username||profileUsername;
+   profileCareerPath=updated.career_path||"";
    render();
   })
   .subscribe();
@@ -995,6 +1023,7 @@ async function refresh(){
  if(error)return say(error.message);
  if(!data.session){
   document.getElementById("rl-username-settings").style.display="none";
+  profileTitle="";profileUsername="";profileCareerPath="";
   open.textContent="Войти / Регистрация";out.style.display="none";badge.style.display="none";
   adminOpen.style.display="none";adminPanel.style.display="none";isFounder=false;
   if(playerChannel){client.removeChannel(playerChannel);playerChannel=null}
@@ -1002,7 +1031,7 @@ async function refresh(){
  }
  const userId=data.session.user.id;
  const {data:p,error:profileError}=await client.from("players")
-  .select("role,username,balance,xp,level,title,energy,game_day,career,owned_assets,game_imported_at")
+  .select("role,username,balance,xp,level,title,energy,game_day,career,career_path,owned_assets,game_imported_at")
   .eq("id",userId).maybeSingle();
  open.textContent=data.session.user.email;out.style.display="inline-block";
  if(profileError){say("Не удалось загрузить профиль: "+profileError.message);return}
@@ -1039,6 +1068,7 @@ async function refresh(){
  game.owned=Array.isArray(state.owned_assets)?state.owned_assets:[];
  profileTitle=state.title||"";
  profileUsername=p.username||"";
+ profileCareerPath=p.career_path||"";
  document.getElementById("rl-username-settings").style.display="block";
  document.getElementById("rl-current-username").value=p.username||"";
  render();watchPlayerProfile(userId);
