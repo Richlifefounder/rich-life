@@ -518,5 +518,112 @@ function resetGame() {
 
 render();
 </script>
+
+<!-- RICH LIFE: восстановление пароля Supabase -->
+<style>
+  #rl-password-recovery {
+    position: fixed; inset: 0; z-index: 999999;
+    display: none; align-items: center; justify-content: center;
+    padding: 20px; background: #080a10;
+    color: #f5f5f7; font-family: Inter, Arial, sans-serif;
+  }
+  #rl-password-recovery .rl-reset-panel {
+    width: 100%; max-width: 410px; padding: 28px;
+    border: 1px solid #d9ad58; border-radius: 20px;
+    background: #151923; box-shadow: 0 20px 70px #0009;
+  }
+  #rl-password-recovery h2 { margin: 0 0 10px; color: #ffe3a1; }
+  #rl-password-recovery p { color: #aeb3bf; line-height: 1.5; }
+  #rl-password-recovery input {
+    box-sizing: border-box; width: 100%; padding: 14px;
+    margin: 8px 0; border-radius: 10px;
+    border: 1px solid #444; background: #090c13; color: white;
+  }
+  #rl-password-recovery button {
+    width: 100%; padding: 14px; margin-top: 12px;
+    border: 0; border-radius: 10px; background: #e8bd68;
+    color: #17120a; font-weight: 800; cursor: pointer;
+  }
+  #rl-password-recovery button:disabled { opacity: .6; cursor: wait; }
+  #rl-reset-status { min-height: 20px; margin-top: 14px; color: #ffe3a1; font-size: 13px; }
+</style>
+<div id="rl-password-recovery" role="dialog" aria-modal="true" aria-labelledby="rl-reset-title">
+  <form class="rl-reset-panel" id="rl-reset-form">
+    <h2 id="rl-reset-title">Восстановление пароля</h2>
+    <p>Придумай новый пароль для своего аккаунта RICH LIFE.</p>
+    <input id="rl-reset-pass1" type="password" minlength="8" autocomplete="new-password" placeholder="Новый пароль (от 8 символов)" required>
+    <input id="rl-reset-pass2" type="password" minlength="8" autocomplete="new-password" placeholder="Повтори новый пароль" required>
+    <button id="rl-reset-submit" type="submit">Сохранить пароль</button>
+    <div id="rl-reset-status" aria-live="polite"></div>
+  </form>
+</div>
+<script>
+(function () {
+  const recoveryHash = window.location.hash || "";
+  const recoveryQuery = new URLSearchParams(window.location.search);
+  const isRecoveryLink = recoveryHash.includes("type=recovery") ||
+    recoveryQuery.get("type") === "recovery" ||
+    recoveryQuery.has("code");
+  if (!isRecoveryLink) return;
+
+  const panel = document.getElementById("rl-password-recovery");
+  const form = document.getElementById("rl-reset-form");
+  const status = document.getElementById("rl-reset-status");
+  const submit = document.getElementById("rl-reset-submit");
+  panel.style.display = "flex";
+
+  function showStatus(message) { status.textContent = message; }
+
+  const sdk = document.createElement("script");
+  sdk.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+  sdk.onload = async function () {
+    try {
+      const client = window.supabase.createClient(
+        "https://ywvqorqjzljpxodwonmk.supabase.co",
+        "sb_publishable_Av82Ku256SeOKhoRx2-Hfw_BQXk82C0",
+        { auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true } }
+      );
+
+      client.auth.onAuthStateChange(function (event) {
+        if (event === "PASSWORD_RECOVERY") {
+          panel.style.display = "flex";
+          showStatus("Ссылка подтверждена. Введи новый пароль.");
+        }
+      });
+
+      const sessionResult = await client.auth.getSession();
+      if (sessionResult.error) showStatus("Не удалось проверить ссылку: " + sessionResult.error.message);
+      else if (sessionResult.data.session) showStatus("Ссылка подтверждена. Введи новый пароль.");
+      else showStatus("Проверяем ссылку восстановления… Если она устарела, запроси новое письмо.");
+      
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        const password = document.getElementById("rl-reset-pass1").value;
+        const repeat = document.getElementById("rl-reset-pass2").value;
+        if (password.length < 8) return showStatus("Пароль должен содержать не менее 8 символов.");
+        if (password !== repeat) return showStatus("Пароли не совпадают.");
+
+        submit.disabled = true;
+        showStatus("Сохраняем новый пароль…");
+        const result = await client.auth.updateUser({ password: password });
+        if (result.error) {
+          showStatus("Ошибка: " + result.error.message);
+          submit.disabled = false;
+          return;
+        }
+        showStatus("Пароль успешно изменён. Теперь можно войти с новым паролем.");
+        form.reset();
+        submit.disabled = false;
+      });
+    } catch (error) {
+      showStatus("Не удалось запустить восстановление: " + error.message);
+    }
+  };
+  sdk.onerror = function () { showStatus("Не удалось загрузить модуль авторизации. Обнови страницу и попробуй снова."); };
+  document.head.appendChild(sdk);
+})();
+</script>
+<!-- Конец блока восстановления пароля -->
+
 </body>
 </html>
