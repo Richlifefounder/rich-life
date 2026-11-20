@@ -236,7 +236,7 @@ footer {
 <main>
   <section id="rl-admin-panel" style="display:none;background:#12151d;border:1px solid #d9ad58;border-radius:18px;padding:18px;margin:0 0 24px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-      <div><div style="color:#ffe3a1;font-weight:900">👑 ПАНЕЛЬ FOUNDER</div><div style="color:#858b99;font-size:12px;margin-top:5px">Управление игровыми балансами</div></div>
+      <div><div style="color:#ffe3a1;font-weight:900">👑 ПАНЕЛЬ FOUNDER</div><div style="color:#858b99;font-size:12px;margin-top:5px">Управление балансом, опытом и уровнем игроков</div></div>
       <button id="rl-admin-refresh" type="button" style="background:#292d37;color:white;padding:10px 13px;border-radius:9px">Обновить список</button>
     </div>
     <div id="rl-admin-status" role="status" style="color:#ffe3a1;font-size:13px;margin:14px 0"></div>
@@ -718,8 +718,9 @@ async function loadAdminPlayers(){
   addText(info,"div","Баланс: "+Number(player.balance||0).toLocaleString("ru-RU")+" ₽ · Уровень "+player.level+" · XP "+player.xp,"font-size:12px;color:#aeb3bf;margin-top:5px");
   addText(info,"div","ID: "+player.id,"font-size:10px;color:#687080;margin-top:5px;overflow-wrap:anywhere");
   card.appendChild(info);
-  const controls=document.createElement("div");controls.style.cssText="display:flex;gap:7px;align-items:center;min-width:0";
-  const amount=document.createElement("input");amount.type="number";amount.step="1";amount.placeholder="± сумма";amount.setAttribute("aria-label","Сумма изменения баланса");amount.style.width="105px";
+  const controls=document.createElement("div");controls.style.cssText="display:flex;flex-direction:column;gap:7px;align-items:stretch;min-width:0";
+  const balanceRow=document.createElement("div");balanceRow.style.cssText="display:flex;gap:7px;align-items:center;min-width:0";
+  const amount=document.createElement("input");amount.type="number";amount.step="1";amount.placeholder="± сумма ₽";amount.setAttribute("aria-label","Сумма изменения баланса");amount.style.width="105px";
   const apply=document.createElement("button");apply.type="button";apply.textContent="Применить";
   apply.addEventListener("click",async()=>{
    const value=Number(amount.value);
@@ -732,7 +733,25 @@ async function loadAdminPlayers(){
    await loadAdminPlayers();
    adminSay("УСПЕХ: баланс в базе данных обновлён до "+Number(updatedBalance).toLocaleString("ru-RU")+" ₽.");
   });
-  controls.append(amount,apply);card.appendChild(controls);adminPlayers.appendChild(card);
+  balanceRow.append(amount,apply);controls.appendChild(balanceRow);
+  const progressRow=document.createElement("div");progressRow.style.cssText="display:flex;gap:6px;align-items:center;min-width:0;flex-wrap:wrap";
+  const xpInput=document.createElement("input");xpInput.type="number";xpInput.min="0";xpInput.max="99";xpInput.step="1";xpInput.placeholder="XP 0–99";xpInput.value=String(Number(player.xp||0));xpInput.setAttribute("aria-label","Новое количество XP");xpInput.style.width="90px";
+  const levelInput=document.createElement("input");levelInput.type="number";levelInput.min="1";levelInput.step="1";levelInput.placeholder="Уровень";levelInput.value=String(Number(player.level||1));levelInput.setAttribute("aria-label","Новый уровень");levelInput.style.width="85px";
+  const progressApply=document.createElement("button");progressApply.type="button";progressApply.textContent="Сохранить XP/уровень";
+  progressApply.addEventListener("click",async()=>{
+   const newXp=Number(xpInput.value),newLevel=Number(levelInput.value);
+   if(!Number.isSafeInteger(newXp)||newXp<0||newXp>99){adminSay("XP должен быть целым числом от 0 до 99.");return}
+   if(!Number.isSafeInteger(newLevel)||newLevel<1){adminSay("Уровень должен быть целым числом не меньше 1.");return}
+   if(!confirm("Установить игроку "+playerName+" XP: "+newXp+" и уровень: "+newLevel+"?"))return;
+   progressApply.disabled=true;
+   const {error:progressError}=await client.rpc("set_player_progress",{target_id:player.id,new_xp:newXp,new_level:newLevel});
+   progressApply.disabled=false;
+   if(progressError){adminSay("Ошибка изменения XP/уровня: "+progressError.message);return}
+   await loadAdminPlayers();
+   adminSay("УСПЕХ: XP и уровень игрока "+playerName+" обновлены.");
+  });
+  progressRow.append(xpInput,levelInput,progressApply);controls.appendChild(progressRow);
+  card.appendChild(controls);adminPlayers.appendChild(card);
  });
 }
 adminOpen.onclick=()=>{adminPanel.style.display=adminPanel.style.display==="none"?"block":"none";if(adminPanel.style.display!=="none")loadAdminPlayers()};
