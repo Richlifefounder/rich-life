@@ -246,6 +246,22 @@ footer {
   .rl-public-card strong{display:block;color:#ffe3a1;font-size:14px}
   .rl-public-card small{display:block;color:#aeb3bf;margin-top:6px;font-size:11px;line-height:1.5}
   #rl-public-detail{display:none;background:#151923;border:1px solid #d9ad58;border-radius:14px;padding:16px;margin:0 0 14px}
+  .rl-profile-head{display:flex;align-items:center;gap:14px;padding-bottom:15px;border-bottom:1px solid #ffffff18}
+  .rl-profile-avatar{width:62px;height:62px;flex:0 0 62px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#80612d,#292216);border:2px solid #d9ad58;color:#ffe3a1;font-size:23px;font-weight:900}
+  .rl-profile-name{color:#ffe3a1;font-size:18px;font-weight:900;overflow-wrap:anywhere}
+  .rl-profile-sub{color:#aeb3bf;font-size:12px;margin-top:5px;line-height:1.5}
+  .rl-profile-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:14px 0}
+  .rl-profile-stat{background:#0d1119;border:1px solid #ffffff12;border-radius:10px;padding:11px}
+  .rl-profile-stat strong{display:block;color:#ffe3a1;font-size:16px}
+  .rl-profile-stat small{color:#9da4b2;font-size:10px}
+  .rl-profile-achievements{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+  .rl-profile-achievement{background:#10141d;border:1px solid #ffffff18;border-radius:10px;padding:10px;min-width:0}
+  .rl-profile-achievement.unlocked{border-color:#d9ad5880;background:linear-gradient(145deg,#292216,#151923)}
+  .rl-profile-achievement span{font-size:20px}
+  .rl-profile-achievement strong{display:block;color:#f4e4c0;font-size:11px;margin-top:5px}
+  .rl-profile-achievement small{display:block;color:#9da4b2;font-size:10px;line-height:1.4;margin-top:4px}
+  .rl-profile-achievement.unlocked small{color:#e8bd68}
+  @media(max-width:520px){.rl-profile-achievements{grid-template-columns:1fr}}
   @media(max-width:520px){#rl-public-profiles{grid-template-columns:1fr}}
   #rl-admin-search{width:100%;padding:12px;border-radius:10px;border:1px solid #ffffff20;background:#090c13;color:white;margin:0 0 12px;font:inherit}
   @media(max-width:650px){.rl-admin-controls{grid-template-columns:1fr}}
@@ -900,22 +916,63 @@ async function loadPublicProfiles(){
   const meta=document.createElement("small");
   meta.textContent=(player.is_founder?"FOUNDER · ":"")+(player.title?player.title+" · ":"")+"Уровень "+Number(player.level||1)+" · "+Number(player.xp||0)+" XP";
   card.append(name,meta);
-  card.addEventListener("click",()=>{
-   publicProfileDetail.replaceChildren();
-   const heading=document.createElement("div");heading.style.cssText="font-weight:900;color:#ffe3a1;font-size:17px";
-   heading.textContent=(player.is_founder?"👑 ":"")+((player.username||"Игрок"));
-   const title=document.createElement("div");title.style.cssText="color:#e8bd68;margin-top:8px;font-size:13px";
-   title.textContent=player.title||"Звание пока не назначено";
-   const stats=document.createElement("div");stats.style.cssText="color:#aeb3bf;margin-top:10px;font-size:12px;line-height:1.7";
-   stats.textContent="Уровень: "+Number(player.level||1)+" · Опыт: "+Number(player.xp||0)+" XP"+(player.is_founder?" · Основатель RICH LIFE":"");
-   const close=document.createElement("button");close.type="button";close.textContent="Закрыть";close.style.cssText="margin-top:12px;background:#292d37;color:white;padding:8px 12px;border-radius:8px";
-   close.onclick=()=>{publicProfileDetail.style.display="none"};
-   publicProfileDetail.append(heading,title,stats,close);
-   publicProfileDetail.style.display="block";
-   publicProfileDetail.scrollIntoView({behavior:"smooth",block:"nearest"});
-  });
+  card.addEventListener("click",()=>openPublicProfile(player));
   publicProfilesGrid.append(card);
  }
+}
+async function openPublicProfile(player){
+ publicProfileDetail.replaceChildren();
+ publicProfileDetail.style.display="block";
+ const loading=document.createElement("div");
+ loading.style.cssText="color:#aeb3bf;font-size:13px";
+ loading.textContent="Загружаем профиль и достижения…";
+ publicProfileDetail.append(loading);
+ publicProfileDetail.scrollIntoView({behavior:"smooth",block:"nearest"});
+ const {data,error}=await client.rpc("get_public_profile",{p_player_id:player.player_id||player.id});
+ if(error){
+  loading.textContent="Не удалось загрузить профиль: "+error.message;
+  return;
+ }
+ const rows=Array.isArray(data)?data:[];
+ const first=rows[0]||player;
+ publicProfileDetail.replaceChildren();
+ const head=document.createElement("div");head.className="rl-profile-head";
+ const avatar=document.createElement("div");avatar.className="rl-profile-avatar";
+ const username=first.username||player.username||"Игрок";
+ avatar.textContent=username.trim().slice(0,1).toUpperCase()||"И";
+ const identity=document.createElement("div");
+ const name=document.createElement("div");name.className="rl-profile-name";
+ name.textContent=(first.is_founder?"👑 ":"")+username;
+ const subtitle=document.createElement("div");subtitle.className="rl-profile-sub";
+ subtitle.textContent=(first.is_founder?"FOUNDER · Основатель RICH LIFE · ":"")+(first.title||"Звание пока не назначено");
+ identity.append(name,subtitle);head.append(avatar,identity);publicProfileDetail.append(head);
+ const stats=document.createElement("div");stats.className="rl-profile-stats";
+ const addStat=(value,label)=>{const box=document.createElement("div");box.className="rl-profile-stat";const strong=document.createElement("strong");strong.textContent=String(value);const small=document.createElement("small");small.textContent=label;box.append(strong,small);stats.append(box)};
+ addStat(Number(first.level||1),"УРОВЕНЬ");
+ addStat(Number(first.xp||0)+" XP","ОПЫТ");
+ publicProfileDetail.append(stats);
+ const section=document.createElement("div");section.style.cssText="color:#ffe3a1;font-weight:900;font-size:13px;margin-top:5px";
+ section.textContent="🏆 Коллекция достижений";
+ publicProfileDetail.append(section);
+ const unlocked=rows.filter(item=>item.achievement_id&&item.unlocked_at).length;
+ const total=rows.filter(item=>item.achievement_id).length;
+ const summary=document.createElement("div");summary.style.cssText="color:#aeb3bf;font-size:11px;margin-top:5px";
+ summary.textContent="Открыто: "+unlocked+" из "+total;
+ publicProfileDetail.append(summary);
+ const grid=document.createElement("div");grid.className="rl-profile-achievements";
+ for(const item of rows){
+  if(!item.achievement_id)continue;
+  const tile=document.createElement("div");tile.className="rl-profile-achievement"+(item.unlocked_at?" unlocked":"");
+  const icon=document.createElement("span");icon.textContent=item.achievement_icon||"🏅";
+  const title=document.createElement("strong");title.textContent=item.achievement_name||"Достижение";
+  const desc=document.createElement("small");desc.textContent=item.unlocked_at?"Получено · "+(item.achievement_points||0)+" очков":(item.achievement_description||"Пока не открыто");
+  tile.append(icon,title,desc);grid.append(tile);
+ }
+ if(!total){const empty=document.createElement("div");empty.style.cssText="color:#9da4b2;font-size:12px;margin-top:10px";empty.textContent="Пока нет достижений в каталоге.";publicProfileDetail.append(empty)}
+ else publicProfileDetail.append(grid);
+ const close=document.createElement("button");close.type="button";close.textContent="Закрыть профиль";close.style.cssText="margin-top:15px;background:#292d37;color:white;padding:9px 13px;border-radius:8px";
+ close.onclick=()=>{publicProfileDetail.style.display="none"};
+ publicProfileDetail.append(close);
 }
 document.getElementById("rl-public-refresh").addEventListener("click",loadPublicProfiles);
 async function refresh(){
