@@ -385,6 +385,7 @@ let saved = null;
 try {
   saved = JSON.parse(localStorage.getItem("richLifeSave"));
 } catch(e) {}
+const hadLegacySave = !!(saved && typeof saved === "object");
 
 let game = saved && typeof saved === "object"
   ? {...initial, ...saved}
@@ -450,79 +451,12 @@ function spendEnergy(amount) {
   return true;
 }
 
-function work() {
-  if(!spendEnergy(20)) return;
-  game.money+=1500;
-  addXP(25);
-  log("Подработка: +1 500 ₽");
-  notify("💼 Ты заработал 1 500 ₽!");
-  render();
-}
-
-function study() {
-  if(!spendEnergy(15)) return;
-  addXP(35);
-  log("Учёба: +35 XP");
-  notify("📚 Отличная работа! +35 XP");
-  render();
-}
-
-function rest() {
-  const old=game.energy;
-  game.energy=Math.min(100,game.energy+35);
-  if(old===game.energy) {
-    notify("Энергия уже полностью восстановлена.");
-    return;
-  }
-  log("Отдых: энергия восстановлена");
-  notify("⚡ Энергия восстановлена!");
-  render();
-}
-
-function nextDay() {
-  game.day++;
-  game.energy=100;
-  let income=0;
-  for(const id of game.owned) {
-    const asset=assetsList.find(a=>a.id===id);
-    if(asset) income+=asset.income;
-  }
-  game.money+=income;
-  log("Новый день. Пассивный доход: "+moneyFormat(income));
-  notify("🌅 Новый день! Доход: "+moneyFormat(income));
-  render();
-}
-
-function promotion() {
-  if(game.career>=careerLevels.length-1) {
-    notify("Ты достиг вершины карьеры!");
-    return;
-  }
-  const next=careerLevels[game.career+1];
-  if(game.money<next.cost) {
-    notify("Не хватает денег для повышения.");
-    return;
-  }
-  game.money-=next.cost;
-  game.career++;
-  log("Повышение: "+next.name);
-  notify("🏆 Поздравляем с повышением!");
-  render();
-}
-
-function buyAsset(id) {
-  const asset=assetsList.find(a=>a.id===id);
-  if(!asset || game.owned.includes(id)) return;
-  if(game.money<asset.cost) {
-    notify("Недостаточно денег!");
-    return;
-  }
-  game.money-=asset.cost;
-  game.owned.push(id);
-  log("Приобретён актив: "+asset.name);
-  notify("🎉 Новый актив приобретён!");
-  render();
-}
+function work() { window.performGameAction?.("work"); }
+function study() { window.performGameAction?.("study"); }
+function rest() { window.performGameAction?.("rest"); }
+function nextDay() { window.performGameAction?.("next_day"); }
+function promotion() { window.performGameAction?.("promotion"); }
+function buyAsset(id) { window.performGameAction?.("buy_asset", id); }
 
 let profileTitle="";
 function render() {
@@ -575,10 +509,7 @@ function render() {
 }
 
 function resetGame() {
-  if(!confirm("Точно начать игру заново? Весь прогресс будет потерян.")) return;
-  game={...initial,owned:[],logs:[...initial.logs]};
-  render();
-  notify("Игра началась заново.");
+  notify("Сброс временно отключён: игровой прогресс теперь хранится на сервере.");
 }
 
 render();
@@ -870,6 +801,52 @@ async function loadAchievements(userId){
  }
 }
 const say=t=>status.textContent=t;
+let gameActionBusy=false;
+async function performGameAction(action,assetId=null){
+ if(!client){notify("Подожди загрузки игры.");return}
+ if(gameActionBusy)return;
+ const {data:sessionData,error:sessionError}=await client.auth.getSession();
+ if(sessionError||!sessionData.session){notify("Войди в аккаунт, чтобы играть и сохранять прогресс.");return}
+ gameActionBusy=true;
+ try{
+  const previous={balance:game.money,level:game.level,career:game.career,day:game.day};
+  const {data,error}=await client.rpc("perform_game_action",{p_action:action,p_asset_id:assetId});
+  if(error)throw error;
+  if(!data)throw new Error("Сервер не вернул обновлённый прогресс");
+  game.money=Number(data.balance??game.money);
+  game.xp=Number(data.xp??game.xp);
+  game.level=Number(data.level??game.level);
+  game.energy=Number(data.energy??game.energy);
+  game.day=Number(data.game_day??game.day);
+  game.career=Number(data.career??game.career);
+  game.owned=Array.isArray(data.owned_assets)?data.owned_assets:game.owned;
+  if(action==="work")log("Подработка: +1 500 ₽");
+  else if(action==="study")log("Учёба: +35 XP");
+  else if(action==="rest")log("Отдых: энергия восстановлена");
+  else if(action==="next_day")log("Новый день. Пассивный доход: "+moneyFormat(game.money-previous.balance));
+  else if(action==="promotion")log("Повышение: "+careerLevels[game.career].name);
+  else if(action==="buy_asset"){
+   const asset=assetsList.find(item=>item.id===assetId);
+   if(asset)log("Приобретён актив: "+asset.name);
+  }
+  if(game.level>previous.level)notify("🎉 Новый уровень! Получен бонус.");
+  else if(action==="work")notify("💼 Ты заработал 1 500 ₽!");
+  else if(action==="study")notify("📚 Отличная работа! +35 XP");
+  else if(action==="rest")notify("⚡ Энергия восстановлена!");
+  else if(action==="next_day")notify("🌅 Новый день! Доход: "+moneyFormat(game.money-previous.balance));
+  else if(action==="promotion")notify("🏆 Поздравляем с повышением!");
+  else if(action==="buy_asset")notify("🎉 Новый актив приобретён!");
+  render();
+  const newlyUnlocked=Array.isArray(data.new_achievements)?data.new_achievements:[];
+  if(newlyUnlocked.length){
+   await loadAchievements(sessionData.session.user.id);
+   notify("🏅 Новое достижение: "+newlyUnlocked.length);
+  }
+ }catch(error){
+  notify("Не удалось выполнить действие: "+error.message);
+ }finally{gameActionBusy=false}
+}
+window.performGameAction=performGameAction;
 function watchPlayerProfile(userId){
  if(playerChannel){client.removeChannel(playerChannel);playerChannel=null}
  playerChannel=client.channel("rl-player-"+userId)
@@ -879,14 +856,69 @@ function watchPlayerProfile(userId){
    game.money=Number(updated.balance??game.money);
    game.xp=Number(updated.xp??game.xp);
    game.level=Number(updated.level??game.level);
+   game.energy=Number(updated.energy??game.energy);
+   game.day=Number(updated.game_day??game.day);
+   game.career=Number(updated.career??game.career);
+   game.owned=Array.isArray(updated.owned_assets)?updated.owned_assets:game.owned;
    profileTitle=updated.title||"";
    render();
-   notify("🔄 Профиль обновлён!");
   })
   .subscribe();
 }
 function setMode(m){mode=m;document.getElementById("rl-auth-title").textContent=m==="signup"?"Создать аккаунт":"Войти в RICH LIFE";document.getElementById("rl-auth-description").textContent=m==="signup"?"Укажи почту и придумай пароль от 8 символов.":"Введи почту и пароль своего аккаунта.";submit.textContent=m==="signup"?"Зарегистрироваться":"Войти";sw.textContent=m==="signup"?"Уже есть аккаунт? Войти":"Нет аккаунта? Зарегистрироваться";say("")}
-async function refresh(){const {data,error}=await client.auth.getSession();if(error)return say(error.message);if(!data.session){open.textContent="Войти / Регистрация";out.style.display="none";badge.style.display="none";adminOpen.style.display="none";adminPanel.style.display="none";isFounder=false;loadAchievements(null);return}const {data:p,error:profileError}=await client.from("players").select("role,balance,xp,level,title").eq("id",data.session.user.id).maybeSingle();open.textContent=data.session.user.email;out.style.display="inline-block";if(profileError){say("Не удалось загрузить профиль: "+profileError.message);return}if(p){game.money=Number(p.balance??game.money);game.xp=Number(p.xp??game.xp);game.level=Number(p.level??game.level);profileTitle=p.title||"";render();watchPlayerProfile(data.session.user.id)}await loadAchievements(data.session.user.id);isFounder=!!(p&&p.role==="founder");badge.style.display=isFounder?"inline-block":"none";adminOpen.style.display=isFounder?"inline-block":"none";if(!isFounder)adminPanel.style.display="none"}
+async function refresh(){
+ const {data,error}=await client.auth.getSession();
+ if(error)return say(error.message);
+ if(!data.session){
+  open.textContent="Войти / Регистрация";out.style.display="none";badge.style.display="none";
+  adminOpen.style.display="none";adminPanel.style.display="none";isFounder=false;
+  if(playerChannel){client.removeChannel(playerChannel);playerChannel=null}
+  loadAchievements(null);return;
+ }
+ const userId=data.session.user.id;
+ const {data:p,error:profileError}=await client.from("players")
+  .select("role,balance,xp,level,title,energy,game_day,career,owned_assets,game_imported_at")
+  .eq("id",userId).maybeSingle();
+ open.textContent=data.session.user.email;out.style.display="inline-block";
+ if(profileError){say("Не удалось загрузить профиль: "+profileError.message);return}
+ if(!p){say("Профиль игрока не найден.");return}
+ let state=p;
+ if(!p.game_imported_at){
+  const source=hadLegacySave?game:{
+   money:Number(p.balance??50000),xp:Number(p.xp??0),level:Number(p.level??1),
+   energy:Number(p.energy??100),day:Number(p.game_day??1),career:Number(p.career??0),
+   owned:Array.isArray(p.owned_assets)?p.owned_assets:[]
+  };
+  const owned=[...new Set((Array.isArray(source.owned)?source.owned:[]).filter(id=>assetsList.some(asset=>asset.id===id)))];
+  const {error:importError}=await client.rpc("import_legacy_game_state",{
+   p_balance:Math.floor(Number(source.money??p.balance??50000)),
+   p_xp:Math.max(0,Math.min(99,Math.floor(Number(source.xp??p.xp??0)))),
+   p_level:Math.max(1,Math.floor(Number(source.level??p.level??1))),
+   p_energy:Math.max(0,Math.min(100,Math.floor(Number(source.energy??p.energy??100)))),
+   p_game_day:Math.max(1,Math.floor(Number(source.day??p.game_day??1))),
+   p_career:Math.max(0,Math.min(4,Math.floor(Number(source.career??p.career??0)))),
+   p_owned_assets:owned
+  });
+  if(importError){say("Не удалось перенести сохранение: "+importError.message);return}
+  state={...p,balance:source.money??p.balance,xp:source.xp??p.xp,level:source.level??p.level,
+   energy:source.energy??p.energy,game_day:source.day??p.game_day,career:source.career??p.career,owned_assets:owned};
+  say(hadLegacySave?"Старое сохранение перенесено в аккаунт.":"Игровой профиль подготовлен к серверному сохранению.");
+ }
+ game.money=Number(state.balance??game.money);
+ game.xp=Number(state.xp??game.xp);
+ game.level=Number(state.level??game.level);
+ game.energy=Number(state.energy??game.energy);
+ game.day=Number(state.game_day??game.day);
+ game.career=Number(state.career??game.career);
+ game.owned=Array.isArray(state.owned_assets)?state.owned_assets:[];
+ profileTitle=state.title||"";
+ render();watchPlayerProfile(userId);
+ await loadAchievements(userId);
+ isFounder=p.role==="founder";
+ badge.style.display=isFounder?"inline-block":"none";
+ adminOpen.style.display=isFounder?"inline-block":"none";
+ if(!isFounder)adminPanel.style.display="none";
+}
 window.RL_SUPABASE_READY.then(async(sharedClient)=>{client=sharedClient;await refresh();client.auth.onAuthStateChange((event,session)=>{if(event==="PASSWORD_RECOVERY")return;refresh()})}).catch(error=>say("Не удалось загрузить авторизацию: "+error.message));
 open.onclick=()=>{setMode("login");overlay.style.display="flex"};document.getElementById("rl-auth-close").onclick=()=>overlay.style.display="none";overlay.onclick=e=>{if(e.target===overlay)overlay.style.display="none"};sw.onclick=()=>setMode(mode==="login"?"signup":"login");
 form.onsubmit=async e=>{e.preventDefault();if(!client)return say("Подожди загрузки авторизации.");const email=document.getElementById("rl-auth-email").value.trim(),password=document.getElementById("rl-auth-password").value;if(password.length<8)return say("Пароль должен быть не короче 8 символов.");submit.disabled=true;try{if(mode==="signup"){const {data,error}=await client.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}});if(error)throw error;if(data.session){await refresh();overlay.style.display="none";say("Аккаунт создан.")}else say("Проверь почту и подтверди регистрацию. Затем войди на сайт.")}else{const {error}=await client.auth.signInWithPassword({email,password});if(error)throw error;await refresh();overlay.style.display="none"}}catch(err){say("Ошибка: "+err.message)}finally{submit.disabled=false}};
