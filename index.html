@@ -586,10 +586,15 @@ window.RL_SUPABASE_READY = new Promise((resolve, reject) => {
 <script>
 (function () {
   const recoveryHash = window.location.hash || "";
+  const hashParams = new URLSearchParams(recoveryHash.replace(/^#/, ""));
   const recoveryQuery = new URLSearchParams(window.location.search);
-  const isRecoveryLink = recoveryHash.includes("type=recovery") ||
+  const errorCode = hashParams.get("error_code") || recoveryQuery.get("error_code");
+  const errorDescription = hashParams.get("error_description") || recoveryQuery.get("error_description");
+  const hasAuthError = hashParams.has("error") || recoveryQuery.has("error");
+  const isRecoveryLink = hashParams.get("type") === "recovery" ||
     recoveryQuery.get("type") === "recovery" ||
-    recoveryQuery.has("code");
+    recoveryQuery.has("code") ||
+    hasAuthError;
   if (!isRecoveryLink) return;
 
   const panel = document.getElementById("rl-password-recovery");
@@ -599,6 +604,15 @@ window.RL_SUPABASE_READY = new Promise((resolve, reject) => {
   panel.style.display = "flex";
 
   function showStatus(message) { status.textContent = message; }
+
+  if (hasAuthError) {
+    const expired = errorCode === "otp_expired" ||
+      /invalid or has expired/i.test(errorDescription || "");
+    showStatus(expired
+      ? "Ссылка недействительна или срок её действия истёк. Запроси новое письмо и открой только самую последнюю ссылку."
+      : "Supabase отклонил ссылку восстановления. Запроси новое письмо и открой самую последнюю ссылку.");
+    return;
+  }
 
   window.RL_SUPABASE_READY.then(async function (client) {
     try {
