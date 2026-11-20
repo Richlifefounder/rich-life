@@ -1,0 +1,522 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RICH LIFE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+:root {
+  --gold: #e8bd68;
+  --gold2: #ffe3a1;
+  --bg: #090b10;
+  --panel: #12151d;
+  --panel2: #191d27;
+  --muted: #858b99;
+  --green: #66d6a0;
+  --red: #ff7777;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(ellipse at 50% -20%, #302518 0%, transparent 50%),
+    var(--bg);
+  color: #f5f5f7;
+  font-family: Inter, Arial, sans-serif;
+}
+header {
+  padding: 23px 5%;
+  border-bottom: 1px solid #ffffff12;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+.logo {
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+.logo span { color: var(--gold); }
+.developer {
+  color: #17120a;
+  background: linear-gradient(135deg, #ffe7a8, #d4a447);
+  padding: 9px 14px;
+  border-radius: 30px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .6px;
+  box-shadow: 0 0 22px #e8bd6830;
+}
+main {
+  max-width: 1100px;
+  margin: auto;
+  padding: 30px 18px 60px;
+}
+.welcome {
+  margin: 10px 0 25px;
+}
+.welcome h1 {
+  font-size: clamp(28px, 6vw, 43px);
+  margin: 0 0 8px;
+  letter-spacing: -1.5px;
+}
+.welcome p { color: var(--muted); margin: 0; }
+.hero {
+  background: linear-gradient(120deg, #252016, #171922 65%, #20202a);
+  border: 1px solid #d7ae603b;
+  border-radius: 23px;
+  padding: 25px;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.hero:after {
+  content: "✦";
+  position: absolute;
+  right: 25px;
+  top: 10px;
+  font-size: 110px;
+  color: #e8bd6810;
+}
+.hero small { color: var(--gold); font-weight: 700; }
+.money {
+  font-size: clamp(35px, 8vw, 53px);
+  font-weight: 900;
+  margin: 10px 0;
+  letter-spacing: -2px;
+}
+.hero p { color: #aaa9a4; margin: 0; }
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.stat, .card {
+  background: var(--panel);
+  border: 1px solid #ffffff10;
+  border-radius: 17px;
+  padding: 17px;
+}
+.stat-label { color: var(--muted); font-size: 12px; }
+.stat-value { font-size: 23px; font-weight: 800; margin-top: 7px; }
+.progress {
+  height: 7px;
+  background: #292d37;
+  border-radius: 10px;
+  margin-top: 12px;
+  overflow: hidden;
+}
+.progress div {
+  height: 100%;
+  background: linear-gradient(90deg, #c18e39, #ffe2a0);
+  border-radius: 10px;
+  transition: width .3s;
+}
+.section-title {
+  font-size: 19px;
+  font-weight: 800;
+  margin: 28px 0 13px;
+}
+.actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+button {
+  font-family: inherit;
+  border: 0;
+  cursor: pointer;
+  transition: .18s;
+}
+.action {
+  background: var(--panel);
+  color: white;
+  border: 1px solid #ffffff12;
+  padding: 18px;
+  border-radius: 16px;
+  text-align: left;
+  min-height: 95px;
+}
+.action:hover { border-color: #e8bd6870; transform: translateY(-2px); }
+.action strong { display: block; margin: 8px 0 5px; font-size: 14px; }
+.action small { color: var(--muted); }
+.icon { font-size: 23px; }
+.assets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.asset {
+  background: var(--panel);
+  border: 1px solid #ffffff12;
+  border-radius: 17px;
+  padding: 18px;
+}
+.asset h3 { margin: 8px 0; font-size: 16px; }
+.asset p { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.asset button {
+  background: #e8bd68;
+  color: #17120a;
+  font-weight: 800;
+  padding: 11px;
+  border-radius: 10px;
+  width: 100%;
+  margin-top: 8px;
+}
+.asset button:disabled { opacity: .4; cursor: not-allowed; }
+.career, .goal, .log {
+  background: var(--panel);
+  border: 1px solid #ffffff10;
+  border-radius: 16px;
+  padding: 17px;
+  margin-bottom: 10px;
+}
+.career button {
+  background: #29251c;
+  color: var(--gold2);
+  border: 1px solid #e8bd6840;
+  padding: 11px 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  margin-top: 10px;
+}
+.goal-line { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+.log { color: #aeb3bf; font-size: 12px; line-height: 1.8; }
+.notice {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #222630;
+  border: 1px solid #e8bd6850;
+  padding: 13px 19px;
+  border-radius: 13px;
+  box-shadow: 0 10px 40px #0009;
+  display: none;
+  z-index: 5;
+  max-width: 90%;
+  font-size: 13px;
+}
+footer {
+  color: #555b68;
+  text-align: center;
+  font-size: 11px;
+  padding: 30px 10px;
+}
+@media(max-width:600px) {
+  header { padding: 18px; }
+  main { padding: 23px 14px 45px; }
+  .stats { gap: 7px; }
+  .stat { padding: 12px 9px; }
+  .stat-value { font-size: 19px; }
+  .stat-label { font-size: 10px; }
+  .hero { padding: 21px; }
+  .action { padding: 14px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">RICH <span>LIFE</span></div>
+  <div class="developer">✦ 👑 РАЗРАБОТЧИК</div>
+</header>
+
+<main>
+  <div class="welcome">
+    <h1>Твоя новая жизнь.</h1>
+    <p>Создай собственную финансовую империю.</p>
+  </div>
+
+  <section class="hero">
+    <small>ТВОЙ БАЛАНС</small>
+    <div class="money" id="money">50 000 ₽</div>
+    <p>Деньги — это результат твоих решений.</p>
+  </section>
+
+  <section class="stats">
+    <div class="stat">
+      <div class="stat-label">⚡ Энергия</div>
+      <div class="stat-value" id="energy">100/100</div>
+      <div class="progress"><div id="energyBar" style="width:100%"></div></div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">⭐ Уровень</div>
+      <div class="stat-value" id="level">1</div>
+      <div class="progress"><div id="xpBar" style="width:0%"></div></div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">📅 День</div>
+      <div class="stat-value" id="day">1</div>
+      <div class="progress"><div style="width:100%"></div></div>
+    </div>
+  </section>
+
+  <div class="section-title">Твои возможности</div>
+  <section class="actions">
+    <button class="action" onclick="work()">
+      <span class="icon">💼</span>
+      <strong>Подработать</strong>
+      <small>+1 500 ₽ · −20 энергии</small>
+    </button>
+    <button class="action" onclick="study()">
+      <span class="icon">📚</span>
+      <strong>Учиться</strong>
+      <small>+35 XP · −15 энергии</small>
+    </button>
+    <button class="action" onclick="rest()">
+      <span class="icon">🛌</span>
+      <strong>Отдохнуть</strong>
+      <small>+35 энергии</small>
+    </button>
+    <button class="action" onclick="nextDay()">
+      <span class="icon">🌅</span>
+      <strong>Новый день</strong>
+      <small>Восстановление и доход</small>
+    </button>
+  </section>
+
+  <div class="section-title">Карьера</div>
+  <section class="career">
+    <div style="color:var(--gold);font-size:12px;font-weight:800">ТВОЙ ПРОФЕССИОНАЛЬНЫЙ ПУТЬ</div>
+    <h3 id="careerName">Начинающий специалист</h3>
+    <div style="color:var(--muted);font-size:12px" id="careerInfo">Следующая ступень: 10 000 ₽</div>
+    <button onclick="promotion()">Получить повышение</button>
+  </section>
+
+  <div class="section-title">Инвестиции и активы</div>
+  <section class="assets" id="assets"></section>
+
+  <div class="section-title">Твои цели</div>
+  <section id="goals"></section>
+
+  <div class="section-title">История событий</div>
+  <section class="log" id="logs">Игра началась. Добро пожаловать в RICH LIFE!</section>
+
+  <div style="text-align:center;margin-top:25px">
+    <button onclick="resetGame()" style="background:#252932;color:#aeb3bf;padding:12px 18px;border-radius:10px;font-size:12px">Сбросить игру</button>
+  </div>
+</main>
+
+<footer>RICH LIFE © 2026 · ТВОЯ ИСТОРИЯ УСПЕХА НАЧИНАЕТСЯ ЗДЕСЬ</footer>
+<div class="notice" id="notice"></div>
+
+<script>
+const initial = {
+  money: 50000,
+  energy: 100,
+  xp: 0,
+  level: 1,
+  day: 1,
+  career: 0,
+  owned: [],
+  logs: ["Игра началась. Добро пожаловать в RICH LIFE!"]
+};
+
+let saved = null;
+try {
+  saved = JSON.parse(localStorage.getItem("richLifeSave"));
+} catch(e) {}
+
+let game = saved && typeof saved === "object"
+  ? {...initial, ...saved}
+  : {...initial};
+
+game.owned = Array.isArray(game.owned) ? game.owned : [];
+game.logs = Array.isArray(game.logs) ? game.logs : initial.logs;
+
+const careerLevels = [
+  {name:"Начинающий специалист",cost:10000},
+  {name:"Опытный специалист",cost:25000},
+  {name:"Менеджер",cost:50000},
+  {name:"Руководитель",cost:100000},
+  {name:"Предприниматель",cost:0}
+];
+
+const assetsList = [
+  {id:"deposit",name:"Банковский вклад",icon:"🏦",cost:20000,income:500,desc:"Небольшой, но стабильный доход."},
+  {id:"shop",name:"Мини-магазин",icon:"🏪",cost:75000,income:1800,desc:"Собственный торговый бизнес."},
+  {id:"studio",name:"Студия недвижимости",icon:"🏢",cost:200000,income:5000,desc:"Инвестиции в недвижимость."},
+  {id:"hotel",name:"Бутик-отель",icon:"🏨",cost:500000,income:14000,desc:"Доходный гостиничный бизнес."},
+  {id:"tower",name:"Бизнес-центр",icon:"🏙️",cost:1500000,income:45000,desc:"Крупный объект недвижимости."}
+];
+
+function save() {
+  localStorage.setItem("richLifeSave",JSON.stringify(game));
+}
+
+function moneyFormat(n) {
+  return Math.floor(n).toLocaleString("ru-RU") + " ₽";
+}
+
+function notify(text) {
+  const el=document.getElementById("notice");
+  el.textContent=text;
+  el.style.display="block";
+  clearTimeout(window.noticeTimer);
+  window.noticeTimer=setTimeout(()=>el.style.display="none",2300);
+}
+
+function log(text) {
+  game.logs.unshift("День "+game.day+": "+text);
+  game.logs=game.logs.slice(0,8);
+}
+
+function addXP(amount) {
+  game.xp+=amount;
+  while(game.xp>=100) {
+    game.xp-=100;
+    game.level++;
+    game.money+=5000;
+    log("Новый уровень! Бонус +5 000 ₽");
+    notify("🎉 Новый уровень! +5 000 ₽");
+  }
+}
+
+function spendEnergy(amount) {
+  if(game.energy<amount) {
+    notify("😴 Недостаточно энергии!");
+    return false;
+  }
+  game.energy-=amount;
+  return true;
+}
+
+function work() {
+  if(!spendEnergy(20)) return;
+  game.money+=1500;
+  addXP(25);
+  log("Подработка: +1 500 ₽");
+  notify("💼 Ты заработал 1 500 ₽!");
+  render();
+}
+
+function study() {
+  if(!spendEnergy(15)) return;
+  addXP(35);
+  log("Учёба: +35 XP");
+  notify("📚 Отличная работа! +35 XP");
+  render();
+}
+
+function rest() {
+  const old=game.energy;
+  game.energy=Math.min(100,game.energy+35);
+  if(old===game.energy) {
+    notify("Энергия уже полностью восстановлена.");
+    return;
+  }
+  log("Отдых: энергия восстановлена");
+  notify("⚡ Энергия восстановлена!");
+  render();
+}
+
+function nextDay() {
+  game.day++;
+  game.energy=100;
+  let income=0;
+  for(const id of game.owned) {
+    const asset=assetsList.find(a=>a.id===id);
+    if(asset) income+=asset.income;
+  }
+  game.money+=income;
+  log("Новый день. Пассивный доход: "+moneyFormat(income));
+  notify("🌅 Новый день! Доход: "+moneyFormat(income));
+  render();
+}
+
+function promotion() {
+  if(game.career>=careerLevels.length-1) {
+    notify("Ты достиг вершины карьеры!");
+    return;
+  }
+  const next=careerLevels[game.career+1];
+  if(game.money<next.cost) {
+    notify("Не хватает денег для повышения.");
+    return;
+  }
+  game.money-=next.cost;
+  game.career++;
+  log("Повышение: "+next.name);
+  notify("🏆 Поздравляем с повышением!");
+  render();
+}
+
+function buyAsset(id) {
+  const asset=assetsList.find(a=>a.id===id);
+  if(!asset || game.owned.includes(id)) return;
+  if(game.money<asset.cost) {
+    notify("Недостаточно денег!");
+    return;
+  }
+  game.money-=asset.cost;
+  game.owned.push(id);
+  log("Приобретён актив: "+asset.name);
+  notify("🎉 Новый актив приобретён!");
+  render();
+}
+
+function render() {
+  document.getElementById("money").textContent=moneyFormat(game.money);
+  document.getElementById("energy").textContent=game.energy+"/100";
+  document.getElementById("energyBar").style.width=game.energy+"%";
+  document.getElementById("level").textContent=game.level;
+  document.getElementById("xpBar").style.width=game.xp+"%";
+  document.getElementById("day").textContent=game.day;
+
+  const career=careerLevels[game.career];
+  document.getElementById("careerName").textContent=career.name;
+  document.getElementById("careerInfo").textContent=
+    game.career===careerLevels.length-1
+      ? "Максимальная ступень карьеры!"
+      : "Следующая ступень: "+moneyFormat(careerLevels[game.career+1].cost);
+
+  document.getElementById("assets").innerHTML=assetsList.map(a=>{
+    const owned=game.owned.includes(a.id);
+    return `<div class="asset">
+      <div style="font-size:27px">${a.icon}</div>
+      <h3>${a.name}</h3>
+      <p>${a.desc}</p>
+      <p>Стоимость: <b style="color:var(--gold)">${moneyFormat(a.cost)}</b><br>
+      Доход за день: <b style="color:var(--green)">${moneyFormat(a.income)}</b></p>
+      <button ${owned?"disabled":""} onclick="buyAsset('${a.id}')">
+      ${owned?"✓ Приобретено":"Купить актив"}
+      </button>
+    </div>`;
+  }).join("");
+
+  const goals=[
+    {name:"Первый миллион",value:game.money,target:1000000},
+    {name:"Пассивный доход 10 000 ₽",value:assetsList.filter(a=>game.owned.includes(a.id)).reduce((s,a)=>s+a.income,0),target:10000},
+    {name:"Пять активов",value:game.owned.length,target:5}
+  ];
+
+  document.getElementById("goals").innerHTML=goals.map(g=>{
+    const pct=Math.min(100,g.value/g.target*100);
+    return `<div class="goal">
+      <div class="goal-line"><b>${g.name}</b><span>${Math.min(g.value,g.target).toLocaleString("ru-RU")} / ${g.target.toLocaleString("ru-RU")}</span></div>
+      <div class="progress"><div style="width:${pct}%"></div></div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("logs").innerHTML=game.logs.map(x=>"• "+x).join("<br>");
+  save();
+}
+
+function resetGame() {
+  if(!confirm("Точно начать игру заново? Весь прогресс будет потерян.")) return;
+  game={...initial,owned:[],logs:[...initial.logs]};
+  render();
+  notify("Игра началась заново.");
+}
+
+render();
+</script>
+</body>
+</html>
