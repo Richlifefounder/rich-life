@@ -240,6 +240,13 @@ footer {
   .rl-achievement-state{font-size:10px;color:#818896;margin-top:9px}
   .rl-achievement.unlocked .rl-achievement-state{color:#e8bd68}
   @media(max-width:520px){#rl-achievements{grid-template-columns:1fr}}
+  #rl-public-profiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:24px}
+  .rl-public-card{background:#151923;border:1px solid #ffffff18;border-radius:13px;padding:14px;cursor:pointer;text-align:left;color:#f5f5f7;width:100%}
+  .rl-public-card:hover{border-color:#d9ad5880}
+  .rl-public-card strong{display:block;color:#ffe3a1;font-size:14px}
+  .rl-public-card small{display:block;color:#aeb3bf;margin-top:6px;font-size:11px;line-height:1.5}
+  #rl-public-detail{display:none;background:#151923;border:1px solid #d9ad58;border-radius:14px;padding:16px;margin:0 0 14px}
+  @media(max-width:520px){#rl-public-profiles{grid-template-columns:1fr}}
   #rl-admin-search{width:100%;padding:12px;border-radius:10px;border:1px solid #ffffff20;background:#090c13;color:white;margin:0 0 12px;font:inherit}
   @media(max-width:650px){.rl-admin-controls{grid-template-columns:1fr}}
   .rl-admin-player button{background:#e8bd68;color:#17120a;padding:10px;border-radius:9px;font-weight:800}
@@ -356,6 +363,16 @@ footer {
   <section id="rl-achievement-section" style="margin-bottom:24px">
     <div id="rl-achievement-summary" style="color:var(--muted);font-size:12px;margin-bottom:10px">Войди в аккаунт, чтобы открыть свою коллекцию.</div>
     <div id="rl-achievements"></div>
+  </section>
+
+  <div class="section-title">🌐 Игроки RICH LIFE</div>
+  <section style="margin-bottom:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px">
+      <div id="rl-public-status" style="color:var(--muted);font-size:12px">Загружаем игроков…</div>
+      <button id="rl-public-refresh" type="button" style="background:#252932;color:#ffe3a1;padding:9px 12px;border-radius:9px;font-size:12px">Обновить</button>
+    </div>
+    <div id="rl-public-detail"></div>
+    <div id="rl-public-profiles"></div>
   </section>
 
   <div class="section-title">История событий</div>
@@ -866,6 +883,41 @@ function watchPlayerProfile(userId){
   .subscribe();
 }
 function setMode(m){mode=m;document.getElementById("rl-auth-title").textContent=m==="signup"?"Создать аккаунт":"Войти в RICH LIFE";document.getElementById("rl-auth-description").textContent=m==="signup"?"Укажи почту и придумай пароль от 8 символов.":"Введи почту и пароль своего аккаунта.";submit.textContent=m==="signup"?"Зарегистрироваться":"Войти";sw.textContent=m==="signup"?"Уже есть аккаунт? Войти":"Нет аккаунта? Зарегистрироваться";say("")}
+const publicProfilesGrid=document.getElementById("rl-public-profiles");
+const publicProfilesStatus=document.getElementById("rl-public-status");
+const publicProfileDetail=document.getElementById("rl-public-detail");
+async function loadPublicProfiles(){
+ publicProfilesStatus.textContent="Загружаем игроков…";
+ publicProfilesGrid.replaceChildren();
+ const {data,error}=await client.rpc("get_public_profiles",{p_limit:100});
+ if(error){publicProfilesStatus.textContent="Не удалось загрузить список игроков.";return}
+ const players=Array.isArray(data)?data:[];
+ publicProfilesStatus.textContent=players.length?"Игроков в каталоге: "+players.length:"Пока нет зарегистрированных игроков.";
+ for(const player of players){
+  const card=document.createElement("button");card.type="button";card.className="rl-public-card";
+  const name=document.createElement("strong");
+  name.textContent=(player.is_founder?"👑 ":"")+((player.username||"Игрок"));
+  const meta=document.createElement("small");
+  meta.textContent=(player.is_founder?"FOUNDER · ":"")+(player.title?player.title+" · ":"")+"Уровень "+Number(player.level||1)+" · "+Number(player.xp||0)+" XP";
+  card.append(name,meta);
+  card.addEventListener("click",()=>{
+   publicProfileDetail.replaceChildren();
+   const heading=document.createElement("div");heading.style.cssText="font-weight:900;color:#ffe3a1;font-size:17px";
+   heading.textContent=(player.is_founder?"👑 ":"")+((player.username||"Игрок"));
+   const title=document.createElement("div");title.style.cssText="color:#e8bd68;margin-top:8px;font-size:13px";
+   title.textContent=player.title||"Звание пока не назначено";
+   const stats=document.createElement("div");stats.style.cssText="color:#aeb3bf;margin-top:10px;font-size:12px;line-height:1.7";
+   stats.textContent="Уровень: "+Number(player.level||1)+" · Опыт: "+Number(player.xp||0)+" XP"+(player.is_founder?" · Основатель RICH LIFE":"");
+   const close=document.createElement("button");close.type="button";close.textContent="Закрыть";close.style.cssText="margin-top:12px;background:#292d37;color:white;padding:8px 12px;border-radius:8px";
+   close.onclick=()=>{publicProfileDetail.style.display="none"};
+   publicProfileDetail.append(heading,title,stats,close);
+   publicProfileDetail.style.display="block";
+   publicProfileDetail.scrollIntoView({behavior:"smooth",block:"nearest"});
+  });
+  publicProfilesGrid.append(card);
+ }
+}
+document.getElementById("rl-public-refresh").addEventListener("click",loadPublicProfiles);
 async function refresh(){
  const {data,error}=await client.auth.getSession();
  if(error)return say(error.message);
@@ -920,7 +972,7 @@ async function refresh(){
  adminOpen.style.display=isFounder?"inline-block":"none";
  if(!isFounder)adminPanel.style.display="none";
 }
-window.RL_SUPABASE_READY.then(async(sharedClient)=>{client=sharedClient;await refresh();client.auth.onAuthStateChange((event,session)=>{if(event==="PASSWORD_RECOVERY")return;refresh()})}).catch(error=>say("Не удалось загрузить авторизацию: "+error.message));
+window.RL_SUPABASE_READY.then(async(sharedClient)=>{client=sharedClient;await loadPublicProfiles();await refresh();client.auth.onAuthStateChange((event,session)=>{if(event==="PASSWORD_RECOVERY")return;refresh()})}).catch(error=>say("Не удалось загрузить авторизацию: "+error.message));
 open.onclick=()=>{setMode("login");overlay.style.display="flex"};document.getElementById("rl-auth-close").onclick=()=>overlay.style.display="none";overlay.onclick=e=>{if(e.target===overlay)overlay.style.display="none"};sw.onclick=()=>setMode(mode==="login"?"signup":"login");
 form.onsubmit=async e=>{e.preventDefault();if(!client)return say("Подожди загрузки авторизации.");const email=document.getElementById("rl-auth-email").value.trim(),password=document.getElementById("rl-auth-password").value;if(password.length<8)return say("Пароль должен быть не короче 8 символов.");submit.disabled=true;try{if(mode==="signup"){const {data,error}=await client.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}});if(error)throw error;if(data.session){await refresh();overlay.style.display="none";say("Аккаунт создан.")}else say("Проверь почту и подтверди регистрацию. Затем войди на сайт.")}else{const {error}=await client.auth.signInWithPassword({email,password});if(error)throw error;await refresh();overlay.style.display="none"}}catch(err){say("Ошибка: "+err.message)}finally{submit.disabled=false}};
 document.getElementById("rl-auth-forgot").onclick=async()=>{if(!client)return say("Подожди загрузки.");const email=document.getElementById("rl-auth-email").value.trim();if(!email)return say("Сначала введи электронную почту.");const {error}=await client.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});say(error?"Ошибка: "+error.message:"Если адрес зарегистрирован, письмо отправлено. Возможен лимит отправки писем.")};
