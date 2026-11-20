@@ -246,7 +246,10 @@ footer {
   <section id="rl-admin-panel" style="display:none;background:#12151d;border:1px solid #d9ad58;border-radius:18px;padding:18px;margin:0 0 24px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
       <div><div style="color:#ffe3a1;font-weight:900">👑 ПАНЕЛЬ FOUNDER</div><div style="color:#858b99;font-size:12px;margin-top:5px">Управление балансом, опытом и уровнем игроков</div></div>
-      <button id="rl-admin-refresh" type="button" style="background:#292d37;color:white;padding:10px 13px;border-radius:9px">Обновить список</button>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        <button id="rl-admin-log-open" type="button" style="background:#5b4825;color:#ffe3a1;padding:10px 13px;border-radius:9px">📜 Журнал действий</button>
+        <button id="rl-admin-refresh" type="button" style="background:#292d37;color:white;padding:10px 13px;border-radius:9px">Обновить список</button>
+      </div>
     </div>
     <div id="rl-admin-status" role="status" style="color:#ffe3a1;font-size:13px;margin:14px 0"></div>
     <input id="rl-admin-search" type="search" placeholder="🔎 Найти игрока по имени, званию или ID">
@@ -261,6 +264,12 @@ footer {
     <div id="rl-admin-detail-view" style="display:none">
       <button id="rl-admin-back" type="button" style="background:#292d37;color:white;padding:10px 14px;border-radius:9px;margin-bottom:14px">← К списку игроков</button>
       <div id="rl-admin-detail"></div>
+    </div>
+    <div id="rl-admin-log-view" style="display:none">
+      <button id="rl-admin-log-back" type="button" style="background:#292d37;color:white;padding:10px 14px;border-radius:9px;margin-bottom:14px">← К игрокам</button>
+      <div style="font-weight:900;color:#ffe3a1;margin-bottom:5px">📜 История действий</div>
+      <div style="font-size:12px;color:#9299a8;margin-bottom:12px">Последние 50 изменений в игре</div>
+      <div id="rl-admin-log-list" style="display:grid;gap:8px"></div>
     </div>
   </section>
 
@@ -732,7 +741,31 @@ function adminSay(message){adminStatus.textContent=message}
 function addText(parent,tag,textValue,styles){const el=document.createElement(tag);el.textContent=textValue;if(styles)el.style.cssText=styles;parent.appendChild(el);return el}
 let selectedAdminPlayer=null;
 const adminListView=document.getElementById("rl-admin-list-view"),adminDetailView=document.getElementById("rl-admin-detail-view"),adminDetail=document.getElementById("rl-admin-detail");
+const adminLogView=document.getElementById("rl-admin-log-view"),adminLogList=document.getElementById("rl-admin-log-list");
 document.getElementById("rl-admin-back").onclick=()=>{selectedAdminPlayer=null;adminDetailView.style.display="none";adminListView.style.display="block";loadAdminPlayers()};
+document.getElementById("rl-admin-log-open").onclick=()=>{adminListView.style.display="none";adminDetailView.style.display="none";adminLogView.style.display="block";loadAdminLog()};
+document.getElementById("rl-admin-log-back").onclick=()=>{adminLogView.style.display="none";adminListView.style.display="block";loadAdminPlayers()};
+async function loadAdminLog(){
+ if(!client||!isFounder)return;
+ adminLogList.replaceChildren();adminSay("Загружаем журнал…");
+ const {data,error}=await client.from("admin_audit_log").select("id,target_username,action,details,created_at").order("created_at",{ascending:false}).limit(50);
+ if(error){adminSay("Не удалось загрузить журнал: "+error.message);return}
+ if(!data||!data.length){addText(adminLogList,"div","Записей пока нет. Новые изменения будут появляться здесь.","color:#aeb3bf;padding:14px;background:#191d27;border-radius:10px");adminSay("Журнал готов.");return}
+ const labels={balance:"💰 Изменение баланса",progress:"⭐ Изменение XP и уровня",title:"✦ Изменение звания"};
+ data.forEach(entry=>{
+  const card=document.createElement("div");card.style.cssText="padding:12px 14px;background:#191d27;border:1px solid #ffffff12;border-radius:11px";
+  addText(card,"strong",labels[entry.action]||"Действие","display:block;color:#ffe3a1;font-size:13px");
+  addText(card,"div","Игрок: "+(entry.target_username||"Без имени"),"color:#fff;font-size:12px;margin-top:5px");
+  const d=entry.details||{};let detail="";
+  if(entry.action==="balance")detail="Было: "+Number(d.before||0).toLocaleString("ru-RU")+" ₽ → стало: "+Number(d.after||0).toLocaleString("ru-RU")+" ₽ ("+(Number(d.delta||0)>0?"+":"")+Number(d.delta||0).toLocaleString("ru-RU")+" ₽)";
+  else if(entry.action==="progress")detail="XP: "+d.old_xp+" → "+d.new_xp+" · уровень: "+d.old_level+" → "+d.new_level;
+  else if(entry.action==="title")detail="«"+(d.before||"Без звания")+"» → «"+(d.after||"Без звания")+"»";
+  addText(card,"div",detail,"color:#c4c9d3;font-size:12px;margin-top:5px;overflow-wrap:anywhere");
+  addText(card,"div",new Date(entry.created_at).toLocaleString("ru-RU"),"color:#858b99;font-size:10px;margin-top:8px");
+  adminLogList.appendChild(card);
+ });
+ adminSay("Показаны последние "+data.length+" записей.");
+}
 async function loadAdminPlayers(){
  if(!client||!isFounder)return;
  adminSay("Загружаем игроков…");adminPlayers.replaceChildren();
