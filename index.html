@@ -1075,11 +1075,11 @@ async function refresh(){
  document.getElementById("rl-username-settings").style.display="block";
  document.getElementById("rl-current-username").value=p.username||"";
  render();watchPlayerProfile(userId);
- await loadAchievements(userId);
- isFounder=p.role==="founder";
+ isFounder=String(p.role||"").toLowerCase()==="founder";
  badge.style.display=isFounder?"inline-block":"none";
  adminOpen.style.display=isFounder?"inline-block":"none";
  if(!isFounder)adminPanel.style.display="none";
+ await loadAchievements(userId);
 }
 async function saveMyUsername(){
  const input=document.getElementById("rl-current-username");
