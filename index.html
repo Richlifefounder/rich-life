@@ -311,7 +311,6 @@ footer {
     <h1>Твоя новая жизнь.</h1>
     <p>Создай собственную финансовую империю.</p>
     <div id="rl-player-identity" style="display:none;margin-top:10px;color:#ffe3a1;font-size:13px;font-weight:800">Игрок: <span id="rl-player-username"></span></div>
-    <div id="rl-founder-diagnostic" style="display:none;margin-top:10px;padding:10px 12px;border:1px solid #d9ad5860;border-radius:10px;background:#12151d;color:#d8dce5;font-size:12px;line-height:1.6;max-width:520px">Проверка Founder: ожидаем данные…</div>
     <div class="rl-player-title" id="rl-player-title"></div>
     <section id="rl-username-settings" style="display:none;margin-top:14px;background:#12151d;border:1px solid #d9ad5840;border-radius:14px;padding:14px;max-width:480px">
       <div style="color:#ffe3a1;font-size:13px;font-weight:800;margin-bottom:8px">ТВОЙ ИГРОВОЙ НИК</div>
@@ -1022,32 +1021,25 @@ async function openPublicProfile(player){
 }
 document.getElementById("rl-public-refresh").addEventListener("click",loadPublicProfiles);
 async function refresh(){
- const diagnostic=document.getElementById("rl-founder-diagnostic");
- const diag=(message)=>{if(diagnostic){diagnostic.style.display="block";diagnostic.textContent="Диагностика Founder: "+message}};
- diag("проверяем сессию…");
  const {data,error}=await client.auth.getSession();
- if(error){diag("ошибка сессии: "+error.message);return say(error.message)}
+ if(error){return say(error.message)}
  if(!data.session){
   document.getElementById("rl-username-settings").style.display="none";
   profileTitle="";profileUsername="";profileCareerPath="";isPlayerSignedIn=false;render();
   open.textContent="Войти / Регистрация";out.style.display="none";badge.style.display="none";
   adminOpen.style.display="none";adminPanel.style.display="none";isFounder=false;
   if(playerChannel){client.removeChannel(playerChannel);playerChannel=null}
-  diag("нет активной сессии");
   loadAchievements(null);return;
  }
  const userId=data.session.user.id;
- diag("сессия есть; ID аккаунта: "+userId+"; загружаем профиль…");
  isPlayerSignedIn=true;
  const {data:p,error:profileError}=await client.from("players")
   .select("role,username,balance,xp,level,title,energy,game_day,career,career_path,owned_assets,game_imported_at")
   .eq("id",userId).maybeSingle();
  open.textContent=data.session.user.email;out.style.display="inline-block";
- if(profileError){diag("ошибка чтения players: "+profileError.message);say("Не удалось загрузить профиль: "+profileError.message);return}
- if(!p){diag("профиль по ID аккаунта не найден");say("Профиль игрока не найден.");return}
- diag("профиль найден; ник: "+(p.username||"пусто")+"; роль из Supabase: "+(p.role||"пустая")+"; ID совпадает с аккаунтом");
+ if(profileError){say("Не удалось загрузить профиль: "+profileError.message);return}
+ if(!p){say("Профиль игрока не найден.");return}
  isFounder=String(p.role||"").trim().toLowerCase()==="founder";
- diag("профиль загружен; ник: "+(p.username||"пусто")+"; роль: "+(p.role||"пустая")+"; Founder распознан: "+(isFounder?"ДА":"НЕТ"));
  badge.style.display=isFounder?"inline-block":"none";
  adminOpen.style.display=isFounder?"inline-block":"none";
  if(!isFounder)adminPanel.style.display="none";
