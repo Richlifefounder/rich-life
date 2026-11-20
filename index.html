@@ -705,7 +705,7 @@ function addText(parent,tag,textValue,styles){const el=document.createElement(ta
 async function loadAdminPlayers(){
  if(!client||!isFounder)return;
  adminSay("Загружаем игроков…");adminPlayers.replaceChildren();
- const {data,error}=await client.from("players").select("id,username,balance,xp,level,role,created_at").order("created_at",{ascending:false}).limit(100);
+ const {data,error}=await client.from("players").select("id,username,balance,xp,level,role,title,created_at").order("created_at",{ascending:false}).limit(100);
  if(error){adminSay("Не удалось загрузить игроков: "+error.message);return}
  if(!data||!data.length){adminSay("Пока игроков нет.");return}
  adminSay("Игроков в списке: "+data.length+" (показаны последние 100)");
@@ -716,6 +716,7 @@ async function loadAdminPlayers(){
   const playerName=player.username||"Игрок без имени";
   addText(info,"div",playerName+" · "+(player.role==="founder"?"Founder":"Игрок"),"font-weight:800;color:#ffe3a1");
   addText(info,"div","Баланс: "+Number(player.balance||0).toLocaleString("ru-RU")+" ₽ · Уровень "+player.level+" · XP "+player.xp,"font-size:12px;color:#aeb3bf;margin-top:5px");
+  addText(info,"div","Звание: "+(player.title||"Без звания"),"font-size:12px;color:#e7c77d;margin-top:5px");
   addText(info,"div","ID: "+player.id,"font-size:10px;color:#687080;margin-top:5px;overflow-wrap:anywhere");
   card.appendChild(info);
   const controls=document.createElement("div");controls.style.cssText="display:flex;flex-direction:column;gap:7px;align-items:stretch;min-width:0";
@@ -751,6 +752,21 @@ async function loadAdminPlayers(){
    adminSay("УСПЕХ: XP и уровень игрока "+playerName+" обновлены.");
   });
   progressRow.append(xpInput,levelInput,progressApply);controls.appendChild(progressRow);
+  const titleRow=document.createElement("div");titleRow.style.cssText="display:flex;gap:6px;align-items:center;min-width:0;flex-wrap:wrap";
+  const titleInput=document.createElement("input");titleInput.type="text";titleInput.maxLength=40;titleInput.placeholder="Новое звание (до 40 символов)";titleInput.value=player.title||"";titleInput.setAttribute("aria-label","Новое звание игрока");titleInput.style.cssText="flex:1;min-width:150px";
+  const titleApply=document.createElement("button");titleApply.type="button";titleApply.textContent="Сохранить звание";
+  titleApply.addEventListener("click",async()=>{
+   const newTitle=titleInput.value.trim();
+   if(newTitle.length>40){adminSay("Звание не должно превышать 40 символов.");return}
+   if(!confirm(newTitle?"Установить игроку "+playerName+" звание «"+newTitle+"»?":"Снять звание у игрока "+playerName+"?"))return;
+   titleApply.disabled=true;
+   const {error:titleError}=await client.rpc("set_player_title",{target_id:player.id,new_title:newTitle||null});
+   titleApply.disabled=false;
+   if(titleError){adminSay("Ошибка изменения звания: "+titleError.message);return}
+   await loadAdminPlayers();
+   adminSay(newTitle?"Звание игрока "+playerName+" обновлено.":"Звание игрока "+playerName+" снято.");
+  });
+  titleRow.append(titleInput,titleApply);controls.appendChild(titleRow);
   card.appendChild(controls);adminPlayers.appendChild(card);
  });
 }
