@@ -251,6 +251,11 @@ footer {
     <div id="rl-admin-status" role="status" style="color:#ffe3a1;font-size:13px;margin:14px 0"></div>
     <input id="rl-admin-search" type="search" placeholder="🔎 Найти игрока по имени, званию или ID">
     <div id="rl-admin-players" style="display:grid;gap:10px"></div>
+    <div id="rl-admin-pagination" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;flex-wrap:wrap">
+      <button id="rl-admin-prev" type="button" style="background:#292d37;color:white;padding:10px 14px;border-radius:9px">← Назад</button>
+      <span id="rl-admin-page-info" style="color:#aeb3bf;font-size:12px">Страница 1</span>
+      <button id="rl-admin-next" type="button" style="background:#292d37;color:white;padding:10px 14px;border-radius:9px">Вперёд →</button>
+    </div>
   </section>
 
   <div class="welcome">
@@ -713,16 +718,32 @@ window.RL_SUPABASE_READY = new Promise((resolve, reject) => {
 (function(){
 const overlay=document.getElementById("rl-auth-overlay"),form=document.getElementById("rl-auth-panel"),status=document.getElementById("rl-auth-status"),open=document.getElementById("rl-auth-open"),out=document.getElementById("rl-auth-out"),badge=document.getElementById("rl-founder-badge"),submit=document.getElementById("rl-auth-submit"),sw=document.getElementById("rl-auth-switch");
 const adminOpen=document.getElementById("rl-admin-open"),adminPanel=document.getElementById("rl-admin-panel"),adminStatus=document.getElementById("rl-admin-status"),adminPlayers=document.getElementById("rl-admin-players"),adminSearch=document.getElementById("rl-admin-search");
+const adminPageInfo=document.getElementById("rl-admin-page-info"),adminPrev=document.getElementById("rl-admin-prev"),adminNext=document.getElementById("rl-admin-next");
+let adminPage=0,adminTotal=0,adminSearchTimer=null;
+const ADMIN_PAGE_SIZE=20;
 let isFounder=false;
 function adminSay(message){adminStatus.textContent=message}
 function addText(parent,tag,textValue,styles){const el=document.createElement(tag);el.textContent=textValue;if(styles)el.style.cssText=styles;parent.appendChild(el);return el}
 async function loadAdminPlayers(){
  if(!client||!isFounder)return;
  adminSay("Загружаем игроков…");adminPlayers.replaceChildren();
- const {data,error}=await client.from("players").select("id,username,balance,xp,level,role,title,created_at").order("created_at",{ascending:false}).limit(100);
+ let query=client.from("players").select("id,username,balance,xp,level,role,title,created_at",{count:"exact"}).order("created_at",{ascending:false});
+ const term=adminSearch.value.trim();
+ if(term){
+  const safe=term.replace(/[(),%_*\\]/g," ").trim();
+  if(/^[0-9a-f-]{36}$/i.test(term))query=query.eq("id",term);
+  else if(safe)query=query.or("username.ilike.%"+safe+"%,title.ilike.%"+safe+"%");
+ }
+ const {data,error,count}=await query.range(adminPage*ADMIN_PAGE_SIZE,(adminPage+1)*ADMIN_PAGE_SIZE-1);
  if(error){adminSay("Не удалось загрузить игроков: "+error.message);return}
- if(!data||!data.length){adminSay("Пока игроков нет.");return}
- adminSay("Игроков в списке: "+data.length+" (показаны последние 100)");
+ adminTotal=count||0;
+ const pageCount=Math.max(1,Math.ceil(adminTotal/ADMIN_PAGE_SIZE));
+ if(adminPage>=pageCount){adminPage=pageCount-1;return loadAdminPlayers()}
+ adminPageInfo.textContent="Страница "+(adminPage+1)+" из "+pageCount+" · "+adminTotal+" игроков";
+ adminPrev.disabled=adminPage===0;adminNext.disabled=adminPage>=pageCount-1;
+ adminPrev.style.opacity=adminPrev.disabled?".4":"1";adminNext.style.opacity=adminNext.disabled?".4":"1";
+ if(!data||!data.length){adminSay(term?"Ничего не найдено.":"Пока игроков нет.");return}
+ adminSay("Найдено игроков: "+adminTotal+" · показано "+(adminPage*ADMIN_PAGE_SIZE+1)+"–"+Math.min((adminPage+1)*ADMIN_PAGE_SIZE,adminTotal));
  data.forEach(player=>{
   const card=addText(adminPlayers,"div","",{});
   card.className="rl-admin-player";
@@ -791,10 +812,14 @@ async function loadAdminPlayers(){
    adminSay(newTitle?"Звание игрока "+playerName+" обновлено.":"Звание игрока "+playerName+" снято.");
   });
   titleRow.append(titleInput,titleApply);controls.appendChild(titleRow);
-  card.appendChild(controls);adminPlayers.appendChild(card);
+  const details=document.createElement("details");details.style.cssText="border-top:1px solid #ffffff12;padding-top:10px";
+  const summary=document.createElement("summary");summary.textContent="⚙ Управление игроком";summary.style.cssText="cursor:pointer;color:#ffe3a1;font-size:13px;font-weight:800;padding:5px 0";
+  details.appendChild(summary);details.appendChild(controls);card.appendChild(details);adminPlayers.appendChild(card);
  });
 }
-adminSearch.addEventListener("input",()=>{const q=adminSearch.value.trim().toLocaleLowerCase("ru-RU");for(const card of adminPlayers.children)card.style.display=card.dataset.search.includes(q)?"flex":"none"});
+adminSearch.addEventListener("input",()=>{clearTimeout(adminSearchTimer);adminSearchTimer=setTimeout(()=>{adminPage=0;loadAdminPlayers()},350)});
+adminPrev.onclick=()=>{if(adminPage>0){adminPage--;loadAdminPlayers()}};
+adminNext.onclick=()=>{if((adminPage+1)*ADMIN_PAGE_SIZE<adminTotal){adminPage++;loadAdminPlayers()}};
 adminOpen.onclick=()=>{adminPanel.style.display=adminPanel.style.display==="none"?"block":"none";if(adminPanel.style.display!=="none")loadAdminPlayers()};
 document.getElementById("rl-admin-refresh").onclick=loadAdminPlayers;
 
