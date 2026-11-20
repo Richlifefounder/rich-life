@@ -695,6 +695,7 @@ window.RL_SUPABASE_READY = new Promise((resolve, reject) => {
 #rl-auth-panel{width:100%;max-width:420px;padding:26px;border:1px solid #d9ad58;border-radius:20px;background:#151923;color:#f5f5f7}
 #rl-auth-panel h2{color:#ffe3a1}#rl-auth-panel p{color:#aeb3bf;font-size:13px;line-height:1.5}
 #rl-auth-panel input{box-sizing:border-box;width:100%;padding:13px;margin:7px 0;border-radius:10px;border:1px solid #444;background:#090c13;color:white}
+#rl-auth-username{display:none}
 #rl-auth-panel button{padding:13px;border:0;border-radius:10px;font-weight:800;cursor:pointer}
 #rl-auth-submit{width:100%;margin-top:10px;background:#e8bd68;color:#17120a}
 #rl-auth-switch,#rl-auth-forgot{display:block;background:transparent;color:#ffe3a1;margin:8px auto}
@@ -704,7 +705,7 @@ window.RL_SUPABASE_READY = new Promise((resolve, reject) => {
 <div id="rl-auth-overlay"><form id="rl-auth-panel">
 <button type="button" id="rl-auth-close">✕</button><h2 id="rl-auth-title">Войти в RICH LIFE</h2>
 <p id="rl-auth-description">Введи почту и пароль своего аккаунта.</p>
-<input id="rl-auth-email" type="email" autocomplete="email" placeholder="Электронная почта" required>
+<input id="rl-auth-username" type="text" maxlength="20" autocomplete="nickname" placeholder="Игровой ник (3–20 символов)" aria-label="Игровой ник"><input id="rl-auth-email" type="email" autocomplete="email" placeholder="Электронная почта" required>
 <input id="rl-auth-password" type="password" minlength="8" placeholder="Пароль (минимум 8 символов)" required>
 <button id="rl-auth-submit" type="submit">Войти</button>
 <button id="rl-auth-switch" type="button">Нет аккаунта? Зарегистрироваться</button>
@@ -898,7 +899,7 @@ function watchPlayerProfile(userId){
   })
   .subscribe();
 }
-function setMode(m){mode=m;document.getElementById("rl-auth-title").textContent=m==="signup"?"Создать аккаунт":"Войти в RICH LIFE";document.getElementById("rl-auth-description").textContent=m==="signup"?"Укажи почту и придумай пароль от 8 символов.":"Введи почту и пароль своего аккаунта.";submit.textContent=m==="signup"?"Зарегистрироваться":"Войти";sw.textContent=m==="signup"?"Уже есть аккаунт? Войти":"Нет аккаунта? Зарегистрироваться";say("")}
+function setMode(m){mode=m;const nick=document.getElementById("rl-auth-username");nick.style.display=m==="signup"?"block":"none";nick.required=m==="signup";document.getElementById("rl-auth-title").textContent=m==="signup"?"Создать аккаунт":"Войти в RICH LIFE";document.getElementById("rl-auth-description").textContent=m==="signup"?"Придумай уникальный игровой ник, укажи почту и пароль от 8 символов.":"Введи почту и пароль своего аккаунта.";submit.textContent=m==="signup"?"Зарегистрироваться":"Войти";sw.textContent=m==="signup"?"Уже есть аккаунт? Войти":"Нет аккаунта? Зарегистрироваться";say("")}
 const publicProfilesGrid=document.getElementById("rl-public-profiles");
 const publicProfilesStatus=document.getElementById("rl-public-status");
 const publicProfileDetail=document.getElementById("rl-public-detail");
@@ -1031,7 +1032,7 @@ async function refresh(){
 }
 window.RL_SUPABASE_READY.then(async(sharedClient)=>{client=sharedClient;await loadPublicProfiles();await refresh();client.auth.onAuthStateChange((event,session)=>{if(event==="PASSWORD_RECOVERY")return;refresh()})}).catch(error=>say("Не удалось загрузить авторизацию: "+error.message));
 open.onclick=()=>{setMode("login");overlay.style.display="flex"};document.getElementById("rl-auth-close").onclick=()=>overlay.style.display="none";overlay.onclick=e=>{if(e.target===overlay)overlay.style.display="none"};sw.onclick=()=>setMode(mode==="login"?"signup":"login");
-form.onsubmit=async e=>{e.preventDefault();if(!client)return say("Подожди загрузки авторизации.");const email=document.getElementById("rl-auth-email").value.trim(),password=document.getElementById("rl-auth-password").value;if(password.length<8)return say("Пароль должен быть не короче 8 символов.");submit.disabled=true;try{if(mode==="signup"){const {data,error}=await client.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}});if(error)throw error;if(data.session){await refresh();overlay.style.display="none";say("Аккаунт создан.")}else say("Проверь почту и подтверди регистрацию. Затем войди на сайт.")}else{const {error}=await client.auth.signInWithPassword({email,password});if(error)throw error;await refresh();overlay.style.display="none"}}catch(err){say("Ошибка: "+err.message)}finally{submit.disabled=false}};
+form.onsubmit=async e=>{e.preventDefault();if(!client)return say("Подожди загрузки авторизации.");const email=document.getElementById("rl-auth-email").value.trim(),password=document.getElementById("rl-auth-password").value,username=document.getElementById("rl-auth-username").value.trim();if(password.length<8)return say("Пароль должен быть не короче 8 символов.");if(mode==="signup"&&!/^[\\p{L}\\p{N}_]{3,20}$/u.test(username))return say("Ник: 3–20 символов, только буквы, цифры и _ без пробелов.");submit.disabled=true;try{if(mode==="signup"){const {data,error}=await client.auth.signUp({email,password,options:{data:{username},emailRedirectTo:location.origin+location.pathname}});if(error)throw error;if(data.session){await refresh();overlay.style.display="none";say("Аккаунт создан. Твой ник: "+username)}else say("Проверь почту и подтверди регистрацию. Ник «"+username+"» сохранён в данных регистрации.")}else{const {error}=await client.auth.signInWithPassword({email,password});if(error)throw error;await refresh();overlay.style.display="none"}}catch(err){say("Ошибка: "+err.message)}finally{submit.disabled=false}};
 document.getElementById("rl-auth-forgot").onclick=async()=>{if(!client)return say("Подожди загрузки.");const email=document.getElementById("rl-auth-email").value.trim();if(!email)return say("Сначала введи электронную почту.");const {error}=await client.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});say(error?"Ошибка: "+error.message:"Если адрес зарегистрирован, письмо отправлено. Возможен лимит отправки писем.")};
 out.onclick=async()=>{if(!client)return;const {error}=await client.auth.signOut();if(error)return say(error.message);adminPanel.style.display="none";await refresh()};
 })();
