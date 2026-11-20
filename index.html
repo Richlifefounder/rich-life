@@ -988,6 +988,7 @@ async function refresh(){
  const {data,error}=await client.auth.getSession();
  if(error)return say(error.message);
  if(!data.session){
+  document.getElementById("rl-username-settings").style.display="none";
   open.textContent="Войти / Регистрация";out.style.display="none";badge.style.display="none";
   adminOpen.style.display="none";adminPanel.style.display="none";isFounder=false;
   if(playerChannel){client.removeChannel(playerChannel);playerChannel=null}
@@ -995,7 +996,7 @@ async function refresh(){
  }
  const userId=data.session.user.id;
  const {data:p,error:profileError}=await client.from("players")
-  .select("role,balance,xp,level,title,energy,game_day,career,owned_assets,game_imported_at")
+  .select("role,username,balance,xp,level,title,energy,game_day,career,owned_assets,game_imported_at")
   .eq("id",userId).maybeSingle();
  open.textContent=data.session.user.email;out.style.display="inline-block";
  if(profileError){say("Не удалось загрузить профиль: "+profileError.message);return}
@@ -1031,6 +1032,8 @@ async function refresh(){
  game.career=Number(state.career??game.career);
  game.owned=Array.isArray(state.owned_assets)?state.owned_assets:[];
  profileTitle=state.title||"";
+ document.getElementById("rl-username-settings").style.display="block";
+ document.getElementById("rl-current-username").value=p.username||"";
  render();watchPlayerProfile(userId);
  await loadAchievements(userId);
  isFounder=p.role==="founder";
