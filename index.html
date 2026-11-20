@@ -310,6 +310,7 @@ footer {
   <div class="welcome">
     <h1>Твоя новая жизнь.</h1>
     <p>Создай собственную финансовую империю.</p>
+    <div id="rl-player-identity" style="display:none;margin-top:10px;color:#ffe3a1;font-size:13px;font-weight:800">Игрок: <span id="rl-player-username"></span></div>
     <div class="rl-player-title" id="rl-player-title"></div>
     <section id="rl-username-settings" style="display:none;margin-top:14px;background:#12151d;border:1px solid #d9ad5840;border-radius:14px;padding:14px;max-width:480px">
       <div style="color:#ffe3a1;font-size:13px;font-weight:800;margin-bottom:8px">ТВОЙ ИГРОВОЙ НИК</div>
@@ -500,7 +501,11 @@ function promotion() { window.performGameAction?.("promotion"); }
 function buyAsset(id) { window.performGameAction?.("buy_asset", id); }
 
 let profileTitle="";
+let profileUsername="";
 function render() {
+  const identityEl=document.getElementById("rl-player-identity");
+  const usernameEl=document.getElementById("rl-player-username");
+  if(identityEl&&usernameEl){identityEl.style.display=profileUsername?"block":"none";usernameEl.textContent=profileUsername}
   const titleEl=document.getElementById("rl-player-title");
   if(titleEl){titleEl.textContent=profileTitle?"✦ "+profileTitle:"";titleEl.style.display=profileTitle?"inline-block":"none"}
   document.getElementById("money").textContent=moneyFormat(game.money);
@@ -903,6 +908,7 @@ function watchPlayerProfile(userId){
    game.career=Number(updated.career??game.career);
    game.owned=Array.isArray(updated.owned_assets)?updated.owned_assets:game.owned;
    profileTitle=updated.title||"";
+   profileUsername=updated.username||profileUsername;
    render();
   })
   .subscribe();
@@ -1032,6 +1038,7 @@ async function refresh(){
  game.career=Number(state.career??game.career);
  game.owned=Array.isArray(state.owned_assets)?state.owned_assets:[];
  profileTitle=state.title||"";
+ profileUsername=p.username||"";
  document.getElementById("rl-username-settings").style.display="block";
  document.getElementById("rl-current-username").value=p.username||"";
  render();watchPlayerProfile(userId);
@@ -1051,7 +1058,9 @@ async function saveMyUsername(){
  try{
   const {data,error}=await client.rpc("set_my_username",{p_username:username});
   if(error)throw error;
-  status.textContent="Ник сохранён: "+(data||username);
+  profileUsername=data||username;
+  render();
+  status.textContent="Ник сохранён: "+profileUsername;
   await loadPublicProfiles();
  }catch(error){
   status.textContent=error.message.includes("players_username_key")||error.message.toLowerCase().includes("duplicate")?"Этот ник уже занят. Придумай другой.":error.message;
