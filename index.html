@@ -250,11 +250,17 @@ footer {
     </div>
     <div id="rl-admin-status" role="status" style="color:#ffe3a1;font-size:13px;margin:14px 0"></div>
     <input id="rl-admin-search" type="search" placeholder="🔎 Найти игрока по имени, званию или ID">
-    <div id="rl-admin-players" style="display:grid;gap:10px"></div>
-    <div id="rl-admin-pagination" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;flex-wrap:wrap">
+    <div id="rl-admin-list-view">
+      <div id="rl-admin-players" style="display:grid;gap:7px"></div>
+      <div id="rl-admin-pagination" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;flex-wrap:wrap">
       <button id="rl-admin-prev" type="button" style="background:#292d37;color:white;padding:10px 14px;border-radius:9px">← Назад</button>
       <span id="rl-admin-page-info" style="color:#aeb3bf;font-size:12px">Страница 1</span>
       <button id="rl-admin-next" type="button" style="background:#292d37;color:white;padding:10px 14px;border-radius:9px">Вперёд →</button>
+      </div>
+    </div>
+    <div id="rl-admin-detail-view" style="display:none">
+      <button id="rl-admin-back" type="button" style="background:#292d37;color:white;padding:10px 14px;border-radius:9px;margin-bottom:14px">← К списку игроков</button>
+      <div id="rl-admin-detail"></div>
     </div>
   </section>
 
@@ -724,100 +730,64 @@ const ADMIN_PAGE_SIZE=20;
 let isFounder=false;
 function adminSay(message){adminStatus.textContent=message}
 function addText(parent,tag,textValue,styles){const el=document.createElement(tag);el.textContent=textValue;if(styles)el.style.cssText=styles;parent.appendChild(el);return el}
+let selectedAdminPlayer=null;
+const adminListView=document.getElementById("rl-admin-list-view"),adminDetailView=document.getElementById("rl-admin-detail-view"),adminDetail=document.getElementById("rl-admin-detail");
+document.getElementById("rl-admin-back").onclick=()=>{selectedAdminPlayer=null;adminDetailView.style.display="none";adminListView.style.display="block";loadAdminPlayers()};
 async function loadAdminPlayers(){
  if(!client||!isFounder)return;
  adminSay("Загружаем игроков…");adminPlayers.replaceChildren();
  let query=client.from("players").select("id,username,balance,xp,level,role,title,created_at",{count:"exact"}).order("created_at",{ascending:false});
  const term=adminSearch.value.trim();
- if(term){
-  const safe=term.replace(/[(),%_*\\]/g," ").trim();
-  if(/^[0-9a-f-]{36}$/i.test(term))query=query.eq("id",term);
-  else if(safe)query=query.or("username.ilike.%"+safe+"%,title.ilike.%"+safe+"%");
- }
+ if(term){const safe=term.replace(/[(),%_*\\]/g," ").trim();if(/^[0-9a-f-]{36}$/i.test(term))query=query.eq("id",term);else if(safe)query=query.or("username.ilike.%"+safe+"%,title.ilike.%"+safe+"%")}
  const {data,error,count}=await query.range(adminPage*ADMIN_PAGE_SIZE,(adminPage+1)*ADMIN_PAGE_SIZE-1);
  if(error){adminSay("Не удалось загрузить игроков: "+error.message);return}
- adminTotal=count||0;
- const pageCount=Math.max(1,Math.ceil(adminTotal/ADMIN_PAGE_SIZE));
+ adminTotal=count||0;const pageCount=Math.max(1,Math.ceil(adminTotal/ADMIN_PAGE_SIZE));
  if(adminPage>=pageCount){adminPage=pageCount-1;return loadAdminPlayers()}
  adminPageInfo.textContent="Страница "+(adminPage+1)+" из "+pageCount+" · "+adminTotal+" игроков";
- adminPrev.disabled=adminPage===0;adminNext.disabled=adminPage>=pageCount-1;
- adminPrev.style.opacity=adminPrev.disabled?".4":"1";adminNext.style.opacity=adminNext.disabled?".4":"1";
+ adminPrev.disabled=adminPage===0;adminNext.disabled=adminPage>=pageCount-1;adminPrev.style.opacity=adminPrev.disabled?".4":"1";adminNext.style.opacity=adminNext.disabled?".4":"1";
  if(!data||!data.length){adminSay(term?"Ничего не найдено.":"Пока игроков нет.");return}
- adminSay("Найдено игроков: "+adminTotal+" · показано "+(adminPage*ADMIN_PAGE_SIZE+1)+"–"+Math.min((adminPage+1)*ADMIN_PAGE_SIZE,adminTotal));
+ adminSay("Игроков: "+adminTotal+" · выбери игрока для управления");
  data.forEach(player=>{
-  const card=addText(adminPlayers,"div","",{});
-  card.className="rl-admin-player";
-  card.dataset.search=[player.username||"",player.title||"",player.id].join(" ").toLocaleLowerCase("ru-RU");
-  const info=document.createElement("div");
-  info.className="rl-admin-player-info";
-  const playerName=player.username||"Игрок без имени";
-  addText(info,"div",playerName+" · "+(player.role==="founder"?"Founder":"Игрок"),"font-weight:800;color:#ffe3a1");
-  addText(info,"div","Баланс: "+Number(player.balance||0).toLocaleString("ru-RU")+" ₽ · Уровень "+player.level+" · XP "+player.xp,"font-size:12px;color:#aeb3bf;margin-top:5px");
-  addText(info,"div","Звание: "+(player.title||"Без звания"),"font-size:12px;color:#e7c77d;margin-top:5px");
-  addText(info,"div","ID: "+player.id,"font-size:10px;color:#687080;margin-top:5px;overflow-wrap:anywhere");
-  card.appendChild(info);
-  const controls=document.createElement("div");controls.className="rl-admin-controls";
-  const balanceRow=document.createElement("div");balanceRow.className="rl-admin-group";
-  addText(balanceRow,"strong","💰 БАЛАНС","");
-  const amount=document.createElement("input");amount.type="number";amount.step="1";amount.placeholder="± сумма ₽";amount.setAttribute("aria-label","Сумма изменения баланса");amount.style.width="105px";
-  const apply=document.createElement("button");apply.type="button";apply.textContent="Применить";
-  apply.addEventListener("click",async()=>{
-   const value=Number(amount.value);
-   if(!Number.isSafeInteger(value)||value===0){adminSay("Введи целое число, отличное от нуля.");return}
-   if(!confirm((value>0?"Выдать ":"Списать ")+Math.abs(value).toLocaleString("ru-RU")+" ₽ игроку "+playerName+"?"))return;
-   apply.disabled=true;
-   const {data:updatedBalance,error:rpcError}=await client.rpc("adjust_player_balance",{target_id:player.id,amount:value});
-   apply.disabled=false;
-   if(rpcError){adminSay("Ошибка изменения баланса: "+rpcError.message);return}
-   await loadAdminPlayers();
-   adminSay("УСПЕХ: баланс в базе данных обновлён до "+Number(updatedBalance).toLocaleString("ru-RU")+" ₽.");
-  });
-  balanceRow.append(amount,apply);controls.appendChild(balanceRow);
-  const progressRow=document.createElement("div");progressRow.className="rl-admin-group";
-  addText(progressRow,"strong","⭐ ПРОГРЕСС","");
-  const xpInput=document.createElement("input");xpInput.type="number";xpInput.min="0";xpInput.max="99";xpInput.step="1";xpInput.placeholder="XP 0–99";xpInput.value=String(Number(player.xp||0));xpInput.setAttribute("aria-label","Новое количество XP");xpInput.style.width="90px";
-  const levelInput=document.createElement("input");levelInput.type="number";levelInput.min="1";levelInput.step="1";levelInput.placeholder="Уровень";levelInput.value=String(Number(player.level||1));levelInput.setAttribute("aria-label","Новый уровень");levelInput.style.width="85px";
-  const progressApply=document.createElement("button");progressApply.type="button";progressApply.textContent="Сохранить XP/уровень";
-  progressApply.addEventListener("click",async()=>{
-   const newXp=Number(xpInput.value),newLevel=Number(levelInput.value);
-   if(!Number.isSafeInteger(newXp)||newXp<0||newXp>99){adminSay("XP должен быть целым числом от 0 до 99.");return}
-   if(!Number.isSafeInteger(newLevel)||newLevel<1){adminSay("Уровень должен быть целым числом не меньше 1.");return}
-   if(!confirm("Установить игроку "+playerName+" XP: "+newXp+" и уровень: "+newLevel+"?"))return;
-   progressApply.disabled=true;
-   const {error:progressError}=await client.rpc("set_player_progress",{target_id:player.id,new_xp:newXp,new_level:newLevel});
-   progressApply.disabled=false;
-   if(progressError){adminSay("Ошибка изменения XP/уровня: "+progressError.message);return}
-   await loadAdminPlayers();
-   adminSay("УСПЕХ: XP и уровень игрока "+playerName+" обновлены.");
-  });
-  progressRow.append(xpInput,levelInput,progressApply);controls.appendChild(progressRow);
-  const titleRow=document.createElement("div");titleRow.className="rl-admin-group";
-  addText(titleRow,"strong","✦ ЗВАНИЕ","");
-  const titleInput=document.createElement("input");titleInput.type="text";titleInput.maxLength=40;titleInput.placeholder="Новое звание (до 40 символов)";titleInput.value=player.title||"";titleInput.setAttribute("aria-label","Новое звание игрока");titleInput.style.cssText="flex:1;min-width:150px";
-  const titleApply=document.createElement("button");titleApply.type="button";titleApply.textContent="Сохранить звание";
-  titleApply.addEventListener("click",async()=>{
-   const newTitle=titleInput.value.trim();
-   if(newTitle.length>40){adminSay("Звание не должно превышать 40 символов.");return}
-   if(!confirm(newTitle?"Установить игроку "+playerName+" звание «"+newTitle+"»?":"Снять звание у игрока "+playerName+"?"))return;
-   titleApply.disabled=true;
-   const {error:titleError}=await client.rpc("set_player_title",{target_id:player.id,new_title:newTitle||null});
-   titleApply.disabled=false;
-   if(titleError){adminSay("Ошибка изменения звания: "+titleError.message);return}
-   const {data:sessionData}=await client.auth.getSession();
-   if(sessionData.session&&sessionData.session.user.id===player.id){
-    const {data:ownProfile,error:ownProfileError}=await client.from("players").select("title").eq("id",player.id).single();
-    if(!ownProfileError){profileTitle=ownProfile?.title||"";render()}
-   }
-   await loadAdminPlayers();
-   adminSay(newTitle?"Звание игрока "+playerName+" обновлено.":"Звание игрока "+playerName+" снято.");
-  });
-  titleRow.append(titleInput,titleApply);controls.appendChild(titleRow);
-  const details=document.createElement("details");details.style.cssText="border-top:1px solid #ffffff12;padding-top:10px";
-  const summary=document.createElement("summary");summary.textContent="⚙ Управление игроком";summary.style.cssText="cursor:pointer;color:#ffe3a1;font-size:13px;font-weight:800;padding:5px 0";
-  details.appendChild(summary);details.appendChild(controls);card.appendChild(details);adminPlayers.appendChild(card);
+  const row=document.createElement("button");row.type="button";
+  row.style.cssText="display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;width:100%;padding:13px 15px;border-radius:11px;background:#191d27;border:1px solid #ffffff12;color:#fff";
+  const left=document.createElement("span");left.style.cssText="min-width:0;display:flex;flex-direction:column;gap:4px";
+  addText(left,"strong",(player.username||"Игрок без имени")+(player.role==="founder"?" · Founder":""),"font-size:13px;color:#ffe3a1");
+  addText(left,"span",(player.title||"Без звания")+" · "+Number(player.balance||0).toLocaleString("ru-RU")+" ₽","font-size:11px;color:#aeb3bf");
+  addText(row,"span","Открыть →","font-size:12px;color:#e8bd68;white-space:nowrap");row.prepend(left);
+  row.onclick=()=>openAdminPlayer(player);adminPlayers.appendChild(row);
  });
 }
-adminSearch.addEventListener("input",()=>{clearTimeout(adminSearchTimer);adminSearchTimer=setTimeout(()=>{adminPage=0;loadAdminPlayers()},350)});
+function openAdminPlayer(player){
+ selectedAdminPlayer=player;adminListView.style.display="none";adminDetailView.style.display="block";adminDetail.replaceChildren();
+ const name=player.username||"Игрок без имени";
+ addText(adminDetail,"div",name+(player.role==="founder"?" · Founder":" · Игрок"),"font-size:20px;font-weight:900;color:#ffe3a1");
+ addText(adminDetail,"div","Баланс: "+Number(player.balance||0).toLocaleString("ru-RU")+" ₽ · Уровень "+player.level+" · XP "+player.xp,"font-size:12px;color:#aeb3bf;margin:7px 0 4px");
+ addText(adminDetail,"div","Текущее звание: "+(player.title||"Без звания"),"font-size:12px;color:#e7c77d;margin-bottom:10px");
+ addText(adminDetail,"div","ID: "+player.id,"font-size:10px;color:#687080;overflow-wrap:anywhere;margin-bottom:15px");
+ const section=(label)=>{const box=document.createElement("div");box.className="rl-admin-group";box.style.marginBottom="10px";addText(box,"strong",label,"");adminDetail.appendChild(box);return box};
+ const balance=section("💰 БАЛАНС");
+ const amount=document.createElement("input");amount.type="number";amount.step="1";amount.placeholder="Положительная или отрицательная сумма";
+ const balanceBtn=document.createElement("button");balanceBtn.textContent="Применить изменение";
+ balanceBtn.onclick=async()=>{const value=Number(amount.value);if(!Number.isSafeInteger(value)||!value)return adminSay("Введи целое число, отличное от нуля.");if(!confirm((value>0?"Выдать ":"Списать ")+Math.abs(value).toLocaleString("ru-RU")+" ₽ игроку "+name+"?"))return;balanceBtn.disabled=true;const {data,error}=await client.rpc("adjust_player_balance",{target_id:player.id,amount:value});balanceBtn.disabled=false;if(error)return adminSay("Ошибка баланса: "+error.message);adminSay("Баланс обновлён: "+Number(data).toLocaleString("ru-RU")+" ₽");await refreshAdminDetail(player.id)};
+ balance.append(amount,balanceBtn);
+ const progress=section("⭐ УРОВЕНЬ И XP");
+ const xp=document.createElement("input");xp.type="number";xp.min="0";xp.max="99";xp.value=String(Number(player.xp||0));xp.placeholder="XP от 0 до 99";
+ const level=document.createElement("input");level.type="number";level.min="1";level.value=String(Number(player.level||1));level.placeholder="Уровень";
+ const progressBtn=document.createElement("button");progressBtn.textContent="Сохранить прогресс";
+ progressBtn.onclick=async()=>{const x=Number(xp.value),l=Number(level.value);if(!Number.isSafeInteger(x)||x<0||x>99)return adminSay("XP должен быть от 0 до 99.");if(!Number.isSafeInteger(l)||l<1)return adminSay("Уровень должен быть не меньше 1.");progressBtn.disabled=true;const {error}=await client.rpc("set_player_progress",{target_id:player.id,new_xp:x,new_level:l});progressBtn.disabled=false;if(error)return adminSay("Ошибка прогресса: "+error.message);adminSay("Прогресс обновлён.");await refreshAdminDetail(player.id)};
+ progress.append(xp,level,progressBtn);
+ const title=section("✦ ЗВАНИЕ");
+ const titleInput=document.createElement("input");titleInput.maxLength=40;titleInput.placeholder="Звание (до 40 символов)";titleInput.value=player.title||"";
+ const titleBtn=document.createElement("button");titleBtn.textContent="Сохранить звание";
+ titleBtn.onclick=async()=>{const value=titleInput.value.trim();if(!confirm(value?"Выдать звание «"+value+"» игроку "+name+"?":"Снять звание у игрока "+name+"?"))return;titleBtn.disabled=true;const {error}=await client.rpc("set_player_title",{target_id:player.id,new_title:value||null});titleBtn.disabled=false;if(error)return adminSay("Ошибка звания: "+error.message);const {data:sessionData}=await client.auth.getSession();if(sessionData.session&&sessionData.session.user.id===player.id){const {data:p}=await client.from("players").select("title").eq("id",player.id).single();profileTitle=p?.title||"";render()}adminSay("Звание сохранено.");await refreshAdminDetail(player.id)};
+ title.append(titleInput,titleBtn);
+}
+async function refreshAdminDetail(id){
+ const {data,error}=await client.from("players").select("id,username,balance,xp,level,role,title,created_at").eq("id",id).single();
+ if(error){adminSay("Не удалось обновить профиль: "+error.message);return}
+ openAdminPlayer(data);
+}
+adminSearch.addEventListener("input",()=>{clearTimeout(adminSearchTimer);adminSearchTimer=setTimeout(()=>{adminPage=0;adminDetailView.style.display="none";adminListView.style.display="block";loadAdminPlayers()},350)});
 adminPrev.onclick=()=>{if(adminPage>0){adminPage--;loadAdminPlayers()}};
 adminNext.onclick=()=>{if((adminPage+1)*ADMIN_PAGE_SIZE<adminTotal){adminPage++;loadAdminPlayers()}};
 adminOpen.onclick=()=>{adminPanel.style.display=adminPanel.style.display==="none"?"block":"none";if(adminPanel.style.display!=="none")loadAdminPlayers()};
