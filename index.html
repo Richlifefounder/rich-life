@@ -1046,7 +1046,7 @@ async function saveMyUsername(){
  const status=document.getElementById("rl-username-status");
  const button=document.getElementById("rl-save-username");
  const username=input.value.trim();
- if(!/^[\\p{L}\\p{N}_]{3,20}$/u.test(username)){status.textContent="Ник: 3–20 символов, буквы, цифры и _ без пробелов.";return}
+ if(!/^[\p{L}\p{N}_]{3,20}$/u.test(username)){status.textContent="Ник: 3–20 символов, буквы, цифры и _ без пробелов.";return}
  button.disabled=true;status.textContent="Сохраняем ник…";
  try{
   const {data,error}=await client.rpc("set_my_username",{p_username:username});
