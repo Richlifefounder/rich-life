@@ -385,7 +385,7 @@ let saved = null;
 try {
   saved = JSON.parse(localStorage.getItem("richLifeSave"));
 } catch(e) {}
-const hadLegacySave = !!(saved && typeof saved === "object");
+const hadLegacySave = !!(saved && typeof saved === "object" && !localStorage.getItem("richLifeLegacyImported"));
 
 let game = saved && typeof saved === "object"
   ? {...initial, ...saved}
@@ -900,6 +900,7 @@ async function refresh(){
    p_owned_assets:owned
   });
   if(importError){say("Не удалось перенести сохранение: "+importError.message);return}
+  localStorage.setItem("richLifeLegacyImported","1");
   state={...p,balance:source.money??p.balance,xp:source.xp??p.xp,level:source.level??p.level,
    energy:source.energy??p.energy,game_day:source.day??p.game_day,career:source.career??p.career,owned_assets:owned};
   say(hadLegacySave?"Старое сохранение перенесено в аккаунт.":"Игровой профиль подготовлен к серверному сохранению.");
