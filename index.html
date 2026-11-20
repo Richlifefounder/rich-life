@@ -221,9 +221,18 @@ footer {
   .action { padding: 14px; }
 }
   #rl-admin-panel input{min-width:0;width:100%;padding:10px;border-radius:9px;border:1px solid #444;background:#090c13;color:white}
-  .rl-admin-player{background:#191d27;border:1px solid #ffffff12;border-radius:12px;padding:13px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+  .rl-admin-player{background:#191d27;border:1px solid #ffffff12;border-radius:14px;padding:15px;display:flex;flex-direction:column;gap:13px}
+  .rl-admin-player-info{min-width:0}
+  .rl-admin-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+  .rl-admin-group{background:#10131a;border:1px solid #ffffff0d;border-radius:11px;padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+  .rl-admin-group strong{font-size:11px;color:#ffe3a1;letter-spacing:.3px}
+  .rl-admin-group input{width:100%!important}
+  .rl-admin-group button{width:100%;font-size:11px}
+  .rl-player-title{display:none;width:max-content;max-width:100%;margin-top:10px;padding:6px 11px;border:1px solid #d9ad5870;border-radius:20px;background:#e8bd6818;color:#ffe3a1;font-size:12px;font-weight:800}
+  #rl-admin-search{width:100%;padding:12px;border-radius:10px;border:1px solid #ffffff20;background:#090c13;color:white;margin:0 0 12px;font:inherit}
+  @media(max-width:650px){.rl-admin-controls{grid-template-columns:1fr}}
   .rl-admin-player button{background:#e8bd68;color:#17120a;padding:10px;border-radius:9px;font-weight:800}
-  @media(max-width:480px){.rl-admin-player{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -240,12 +249,14 @@ footer {
       <button id="rl-admin-refresh" type="button" style="background:#292d37;color:white;padding:10px 13px;border-radius:9px">Обновить список</button>
     </div>
     <div id="rl-admin-status" role="status" style="color:#ffe3a1;font-size:13px;margin:14px 0"></div>
+    <input id="rl-admin-search" type="search" placeholder="🔎 Найти игрока по имени, званию или ID">
     <div id="rl-admin-players" style="display:grid;gap:10px"></div>
   </section>
 
   <div class="welcome">
     <h1>Твоя новая жизнь.</h1>
     <p>Создай собственную финансовую империю.</p>
+    <div class="rl-player-title" id="rl-player-title"></div>
   </div>
 
   <section class="hero">
@@ -476,7 +487,10 @@ function buyAsset(id) {
   render();
 }
 
+let profileTitle="";
 function render() {
+  const titleEl=document.getElementById("rl-player-title");
+  if(titleEl){titleEl.textContent=profileTitle?"✦ "+profileTitle:"";titleEl.style.display=profileTitle?"inline-block":"none"}
   document.getElementById("money").textContent=moneyFormat(game.money);
   document.getElementById("energy").textContent=game.energy+"/100";
   document.getElementById("energyBar").style.width=game.energy+"%";
@@ -698,7 +712,7 @@ window.RL_SUPABASE_READY = new Promise((resolve, reject) => {
 <script>
 (function(){
 const overlay=document.getElementById("rl-auth-overlay"),form=document.getElementById("rl-auth-panel"),status=document.getElementById("rl-auth-status"),open=document.getElementById("rl-auth-open"),out=document.getElementById("rl-auth-out"),badge=document.getElementById("rl-founder-badge"),submit=document.getElementById("rl-auth-submit"),sw=document.getElementById("rl-auth-switch");
-const adminOpen=document.getElementById("rl-admin-open"),adminPanel=document.getElementById("rl-admin-panel"),adminStatus=document.getElementById("rl-admin-status"),adminPlayers=document.getElementById("rl-admin-players");
+const adminOpen=document.getElementById("rl-admin-open"),adminPanel=document.getElementById("rl-admin-panel"),adminStatus=document.getElementById("rl-admin-status"),adminPlayers=document.getElementById("rl-admin-players"),adminSearch=document.getElementById("rl-admin-search");
 let isFounder=false;
 function adminSay(message){adminStatus.textContent=message}
 function addText(parent,tag,textValue,styles){const el=document.createElement(tag);el.textContent=textValue;if(styles)el.style.cssText=styles;parent.appendChild(el);return el}
@@ -712,15 +726,18 @@ async function loadAdminPlayers(){
  data.forEach(player=>{
   const card=addText(adminPlayers,"div","",{});
   card.className="rl-admin-player";
+  card.dataset.search=[player.username||"",player.title||"",player.id].join(" ").toLocaleLowerCase("ru-RU");
   const info=document.createElement("div");
+  info.className="rl-admin-player-info";
   const playerName=player.username||"Игрок без имени";
   addText(info,"div",playerName+" · "+(player.role==="founder"?"Founder":"Игрок"),"font-weight:800;color:#ffe3a1");
   addText(info,"div","Баланс: "+Number(player.balance||0).toLocaleString("ru-RU")+" ₽ · Уровень "+player.level+" · XP "+player.xp,"font-size:12px;color:#aeb3bf;margin-top:5px");
   addText(info,"div","Звание: "+(player.title||"Без звания"),"font-size:12px;color:#e7c77d;margin-top:5px");
   addText(info,"div","ID: "+player.id,"font-size:10px;color:#687080;margin-top:5px;overflow-wrap:anywhere");
   card.appendChild(info);
-  const controls=document.createElement("div");controls.style.cssText="display:flex;flex-direction:column;gap:7px;align-items:stretch;min-width:0";
-  const balanceRow=document.createElement("div");balanceRow.style.cssText="display:flex;gap:7px;align-items:center;min-width:0";
+  const controls=document.createElement("div");controls.className="rl-admin-controls";
+  const balanceRow=document.createElement("div");balanceRow.className="rl-admin-group";
+  addText(balanceRow,"strong","💰 БАЛАНС","");
   const amount=document.createElement("input");amount.type="number";amount.step="1";amount.placeholder="± сумма ₽";amount.setAttribute("aria-label","Сумма изменения баланса");amount.style.width="105px";
   const apply=document.createElement("button");apply.type="button";apply.textContent="Применить";
   apply.addEventListener("click",async()=>{
@@ -735,7 +752,8 @@ async function loadAdminPlayers(){
    adminSay("УСПЕХ: баланс в базе данных обновлён до "+Number(updatedBalance).toLocaleString("ru-RU")+" ₽.");
   });
   balanceRow.append(amount,apply);controls.appendChild(balanceRow);
-  const progressRow=document.createElement("div");progressRow.style.cssText="display:flex;gap:6px;align-items:center;min-width:0;flex-wrap:wrap";
+  const progressRow=document.createElement("div");progressRow.className="rl-admin-group";
+  addText(progressRow,"strong","⭐ ПРОГРЕСС","");
   const xpInput=document.createElement("input");xpInput.type="number";xpInput.min="0";xpInput.max="99";xpInput.step="1";xpInput.placeholder="XP 0–99";xpInput.value=String(Number(player.xp||0));xpInput.setAttribute("aria-label","Новое количество XP");xpInput.style.width="90px";
   const levelInput=document.createElement("input");levelInput.type="number";levelInput.min="1";levelInput.step="1";levelInput.placeholder="Уровень";levelInput.value=String(Number(player.level||1));levelInput.setAttribute("aria-label","Новый уровень");levelInput.style.width="85px";
   const progressApply=document.createElement("button");progressApply.type="button";progressApply.textContent="Сохранить XP/уровень";
@@ -752,7 +770,8 @@ async function loadAdminPlayers(){
    adminSay("УСПЕХ: XP и уровень игрока "+playerName+" обновлены.");
   });
   progressRow.append(xpInput,levelInput,progressApply);controls.appendChild(progressRow);
-  const titleRow=document.createElement("div");titleRow.style.cssText="display:flex;gap:6px;align-items:center;min-width:0;flex-wrap:wrap";
+  const titleRow=document.createElement("div");titleRow.className="rl-admin-group";
+  addText(titleRow,"strong","✦ ЗВАНИЕ","");
   const titleInput=document.createElement("input");titleInput.type="text";titleInput.maxLength=40;titleInput.placeholder="Новое звание (до 40 символов)";titleInput.value=player.title||"";titleInput.setAttribute("aria-label","Новое звание игрока");titleInput.style.cssText="flex:1;min-width:150px";
   const titleApply=document.createElement("button");titleApply.type="button";titleApply.textContent="Сохранить звание";
   titleApply.addEventListener("click",async()=>{
@@ -770,6 +789,7 @@ async function loadAdminPlayers(){
   card.appendChild(controls);adminPlayers.appendChild(card);
  });
 }
+adminSearch.addEventListener("input",()=>{const q=adminSearch.value.trim().toLocaleLowerCase("ru-RU");for(const card of adminPlayers.children)card.style.display=card.dataset.search.includes(q)?"flex":"none"});
 adminOpen.onclick=()=>{adminPanel.style.display=adminPanel.style.display==="none"?"block":"none";if(adminPanel.style.display!=="none")loadAdminPlayers()};
 document.getElementById("rl-admin-refresh").onclick=loadAdminPlayers;
 
@@ -784,13 +804,14 @@ function watchPlayerProfile(userId){
    game.money=Number(updated.balance??game.money);
    game.xp=Number(updated.xp??game.xp);
    game.level=Number(updated.level??game.level);
+   profileTitle=updated.title||"";
    render();
    notify("🔄 Профиль обновлён!");
   })
   .subscribe();
 }
 function setMode(m){mode=m;document.getElementById("rl-auth-title").textContent=m==="signup"?"Создать аккаунт":"Войти в RICH LIFE";document.getElementById("rl-auth-description").textContent=m==="signup"?"Укажи почту и придумай пароль от 8 символов.":"Введи почту и пароль своего аккаунта.";submit.textContent=m==="signup"?"Зарегистрироваться":"Войти";sw.textContent=m==="signup"?"Уже есть аккаунт? Войти":"Нет аккаунта? Зарегистрироваться";say("")}
-async function refresh(){const {data,error}=await client.auth.getSession();if(error)return say(error.message);if(!data.session){open.textContent="Войти / Регистрация";out.style.display="none";badge.style.display="none";adminOpen.style.display="none";adminPanel.style.display="none";isFounder=false;return}const {data:p,error:profileError}=await client.from("players").select("role,balance,xp,level").eq("id",data.session.user.id).maybeSingle();open.textContent=data.session.user.email;out.style.display="inline-block";if(profileError){say("Не удалось загрузить профиль: "+profileError.message);return}if(p){game.money=Number(p.balance??game.money);game.xp=Number(p.xp??game.xp);game.level=Number(p.level??game.level);render();watchPlayerProfile(data.session.user.id)}isFounder=!!(p&&p.role==="founder");badge.style.display=isFounder?"inline-block":"none";adminOpen.style.display=isFounder?"inline-block":"none";if(!isFounder)adminPanel.style.display="none"}
+async function refresh(){const {data,error}=await client.auth.getSession();if(error)return say(error.message);if(!data.session){open.textContent="Войти / Регистрация";out.style.display="none";badge.style.display="none";adminOpen.style.display="none";adminPanel.style.display="none";isFounder=false;return}const {data:p,error:profileError}=await client.from("players").select("role,balance,xp,level,title").eq("id",data.session.user.id).maybeSingle();open.textContent=data.session.user.email;out.style.display="inline-block";if(profileError){say("Не удалось загрузить профиль: "+profileError.message);return}if(p){game.money=Number(p.balance??game.money);game.xp=Number(p.xp??game.xp);game.level=Number(p.level??game.level);profileTitle=p.title||"";render();watchPlayerProfile(data.session.user.id)}isFounder=!!(p&&p.role==="founder");badge.style.display=isFounder?"inline-block":"none";adminOpen.style.display=isFounder?"inline-block":"none";if(!isFounder)adminPanel.style.display="none"}
 window.RL_SUPABASE_READY.then(async(sharedClient)=>{client=sharedClient;await refresh();client.auth.onAuthStateChange((event,session)=>{if(event==="PASSWORD_RECOVERY")return;refresh()})}).catch(error=>say("Не удалось загрузить авторизацию: "+error.message));
 open.onclick=()=>{setMode("login");overlay.style.display="flex"};document.getElementById("rl-auth-close").onclick=()=>overlay.style.display="none";overlay.onclick=e=>{if(e.target===overlay)overlay.style.display="none"};sw.onclick=()=>setMode(mode==="login"?"signup":"login");
 form.onsubmit=async e=>{e.preventDefault();if(!client)return say("Подожди загрузки авторизации.");const email=document.getElementById("rl-auth-email").value.trim(),password=document.getElementById("rl-auth-password").value;if(password.length<8)return say("Пароль должен быть не короче 8 символов.");submit.disabled=true;try{if(mode==="signup"){const {data,error}=await client.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}});if(error)throw error;if(data.session){await refresh();overlay.style.display="none";say("Аккаунт создан.")}else say("Проверь почту и подтверди регистрацию. Затем войди на сайт.")}else{const {error}=await client.auth.signInWithPassword({email,password});if(error)throw error;await refresh();overlay.style.display="none"}}catch(err){say("Ошибка: "+err.message)}finally{submit.disabled=false}};
